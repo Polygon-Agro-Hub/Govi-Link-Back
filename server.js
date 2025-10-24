@@ -19,6 +19,10 @@ app.options("*", cors(corsOptions));
 app.use(bodyParser.json({ limit: '10mb' }));
 app.use(bodyParser.urlencoded({ limit: '10mb', extended: true }));
 
+
+
+
+
 app.get([`${BASE_PATH}/health`, `${BASE_PATH}/healthz`], (req, res) => {
     res.status(200).json({
         status: 'ok',
@@ -51,11 +55,14 @@ DatabaseConnection(collectionofficer, "CollectionOfficer");
 DatabaseConnection(marketPlace, "MarketPlace");
 DatabaseConnection(admin, "Admin");
 
+
+const userroute = require('./routes/user.routes.js');
+app.use(`${BASE_PATH}/api/auth`,userroute);
+
 app.use((err, req, res, next) => {
     console.error(err.stack);
     res.status(500).send('Something broke!');
 });
-
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
