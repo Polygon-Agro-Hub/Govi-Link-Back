@@ -4,6 +4,7 @@ const { loginSchema} = require("../Validations/Auth-validations");
 const asyncHandler = require("express-async-handler");
 
 exports.login = asyncHandler(async (req, res) => {
+  console.log("hit login")
   // Validate request body using Joi
   const { error } = loginSchema.validate(req.body, { abortEarly: false });
   console.log(error)
