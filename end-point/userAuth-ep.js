@@ -63,3 +63,29 @@ exports.login = asyncHandler(async (req, res) => {
   }
 });
 
+exports.getprofile = asyncHandler(async(req,res)=>{
+  console.log('get profile')
+  const officerId = req.user?.id;
+      if (!officerId) {
+      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
+    }
+  try{
+    const officerProfile = await userDao.getprofile(officerId);
+
+        res.status(200).json({
+      status: "success",
+      data: officerProfile,
+    });
+  } catch (error) {
+    console.error("Error fetching officer details:", error.message);
+
+    if (error.message === "Officer not found") {
+      return res.status(404).json({ status: "error", message: "Officer not found" });
+    }
+
+    res.status(500).json({
+      status: "error",
+      message: "An error occurred while fetching officer details",
+    });
+  }
+})
