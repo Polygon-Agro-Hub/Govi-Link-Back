@@ -58,3 +58,29 @@ db.plantcare.query(sql, [officerId], (err, results) => {
   }
 )
 }
+
+exports.getmyprofile = async (officerId) =>{
+  console.log("userID", officerId)
+return new Promise((resolve, reject) => {
+  let sql = `
+  SELECT empId,firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg, phoneNumber1,phoneNumber2,nic,
+  house,city,street,email
+  FROM feildofficer
+  WHERE id = ?
+  `
+
+db.plantcare.query(sql, [officerId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return reject(new Error("Database error"));
+      }
+
+      if (results.length === 0) {
+        return reject(new Error("Officer not found"));
+      }
+
+      resolve(results[0]); 
+    });
+  }
+)
+}

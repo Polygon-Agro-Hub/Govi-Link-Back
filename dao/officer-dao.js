@@ -18,11 +18,22 @@ exports.getofficerVisits = async (officerId) => {
           WHEN cp.clusterId IS NOT NULL THEN fc.clsName
           ELSE NULL
         END AS farmerName,
+     CASE 
+          WHEN cp.payType = 'Crop' THEN ocs.longitude
+          ELSE NULL
+        END AS longitude,
+        CASE 
+          WHEN cp.payType = 'Crop' THEN ocs.latitude
+          ELSE NULL
+        END AS latitude,
+
         fau.createdAt AS createdAt
       FROM feildaudits AS fau
       LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
       LEFT JOIN users AS ps ON cp.userId = ps.id
         LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
+        LEFT JOIN certificationpaymentcrop AS cpc ON cp.id=cpc.paymentId
+        LEFT JOIN ongoingcultivationscrops AS ocs ON cpc.cropId= ocs.id
       WHERE fau.assignOfficerId = ?
         AND DATE(fau.createdAt) = CURDATE()
         AND fau.status = 'Pending'
@@ -38,6 +49,8 @@ exports.getofficerVisits = async (officerId) => {
         os.tamilName AS tamilName,
         "govilinkjobs" AS auditType,
         CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
+          NULL AS longitude,
+        NULL AS latitude,
         jao.createdAt AS createdAt
       FROM jobassignofficer AS jao
       LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
