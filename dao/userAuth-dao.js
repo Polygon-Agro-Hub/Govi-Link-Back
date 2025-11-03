@@ -6,7 +6,7 @@ exports.loginUser = async (empId, password) => {
     const sql = `
       SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate
       FROM feildofficer
-      WHERE empId = ?
+      WHERE empId = ? AND status = "Approved"
     `;
     const [results] = await db.plantcare.promise().query(sql, [empId]);
 
@@ -30,7 +30,7 @@ exports.loginUser = async (empId, password) => {
       status: user.status
     };
   } catch (err) {
-    throw new Error('Database error: ' + err.message);
+    throw new Error('Database error:' + err.message);
   }
 };
 
