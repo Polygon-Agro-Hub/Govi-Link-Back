@@ -1,27 +1,86 @@
 const db = require('../startup/database');
 const bcrypt = require('bcrypt');
 
-exports.loginUser = (empId, password) => {
-  console.log(empId)
-  return new Promise(async (resolve, reject) => {
-    try {
-      const sql = 'SELECT empId, password, id, passwordUpdate FROM govilink WHERE empId = ?';
-      const [results] = await db.marketPlace.promise().query(sql, [empId]);
+exports.loginUser = async (empId, password) => {
+  try {
+    const sql = `
+      SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate
+      FROM feildofficer
+      WHERE empId = ? AND status = "Approved"
+    `;
+    const [results] = await db.plantcare.promise().query(sql, [empId]);
+
+    if (results.length === 0) {
+      throw new Error('User not found');
+    }
+
+    const user = results[0];
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+
+    if (!isPasswordValid) {
+      throw new Error('Invalid password');
+    }
+
+    return {
+      success: true,
+      empId: user.empId,
+      id: user.id,
+      role: user.role,
+      passwordUpdate: user.passwordUpdate,
+      status: user.status
+    };
+  } catch (err) {
+    throw new Error('Database error:' + err.message);
+  }
+};
+
+exports.getprofile = async (officerId) =>{
+  console.log("userID", officerId)
+return new Promise((resolve, reject) => {
+  let sql = `
+  SELECT empId, JobRole AS role,status, firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg
+  FROM feildofficer
+  WHERE id = ?
+  `
+
+db.plantcare.query(sql, [officerId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return reject(new Error("Database error"));
+      }
 
       if (results.length === 0) {
-        return reject(new Error('User not found'));
+        return reject(new Error("Officer not found"));
       }
 
-      const user = results[0];
-      const isPasswordValid = await bcrypt.compare(password, user.password);
+      resolve(results[0]); 
+    });
+  }
+)
+}
 
-      if (!isPasswordValid) {
-        return reject(new Error('Invalid password'));
+exports.getmyprofile = async (officerId) =>{
+  console.log("userID", officerId)
+return new Promise((resolve, reject) => {
+  let sql = `
+  SELECT empId,firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg, phoneNumber1,phoneNumber2,nic,
+  house,city,street,email
+  FROM feildofficer
+  WHERE id = ?
+  `
+
+db.plantcare.query(sql, [officerId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return reject(new Error("Database error"));
       }
 
-      resolve({ success: true, empId: user.empId, id: user.id, passwordUpdate: user.passwordUpdate });
-    } catch (err) {
-      return reject(new Error('Database error: ' + err.message));
-    }
-  });
-};
+      if (results.length === 0) {
+        return reject(new Error("Officer not found"));
+      }
+
+      resolve(results[0]); 
+    });
+  }
+)
+}

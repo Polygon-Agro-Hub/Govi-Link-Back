@@ -4,6 +4,7 @@ const { loginSchema} = require("../Validations/Auth-validations");
 const asyncHandler = require("express-async-handler");
 
 exports.login = asyncHandler(async (req, res) => {
+  console.log("hit login")
   // Validate request body using Joi
   const { error } = loginSchema.validate(req.body, { abortEarly: false });
   console.log(error)
@@ -23,26 +24,38 @@ exports.login = asyncHandler(async (req, res) => {
     const result = await userDao.loginUser(empId, password);
     console.log("User login successful:", result);
 
-    // Create JWT token
-    const token = jwt.sign(
-      { empId: result.empId, id: result.id, passwordUpdate: result.passwordUpdate },
-      process.env.JWT_SECRET,
-      { expiresIn: "8h" }
-    );
+ // Define JWT payload
+    const payload = {
+      empId: result.empId,
+      id: result.id,
+      role: result.role || "user",
+      passwordUpdate: result.passwordUpdate,
+      iat: Math.floor(Date.now() / 1000),
+    };
 
-    // Send token as HTTP-only cookie (More Secure)
+    // Create JWT token
+    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "8h" });
+
+    // Send token as HTTP-only cookie (more secure)
     res.cookie("authToken", token, {
-      httpOnly: true, // Prevents JavaScript access
-      secure: process.env.NODE_ENV === "production", // Secure flag for HTTPS in production
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
-      // maxAge: 3600000, // 1 hour
-      maxAge: 8 * 60 * 60 * 1000,
+      maxAge: 8 * 60 * 60 * 1000, // 8 hours
     });
 
+    // Send response with token
     return res.status(200).json({
       success: true,
       message: "Login successful",
-      data: { empId: result.empId, token, id: result.id, passwordUpdate: result.passwordUpdate },
+      data: {
+        empId: result.empId,
+        id: result.id,
+        role: result.role,
+        token,
+        passwordUpdate: result.passwordUpdate,
+        status: result.status
+      },
     });
   } catch (err) {
     console.error("Login failed:", err.message);
@@ -50,3 +63,55 @@ exports.login = asyncHandler(async (req, res) => {
   }
 });
 
+exports.getprofile = asyncHandler(async(req,res)=>{
+  console.log('get profile')
+  const officerId = req.user?.id;
+      if (!officerId) {
+      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
+    }
+  try{
+    const officerProfile = await userDao.getprofile(officerId);
+
+        res.status(200).json({
+      status: "success",
+      data: officerProfile,
+    });
+  } catch (error) {
+    console.error("Error fetching officer details:", error.message);
+
+    if (error.message === "Officer not found") {
+      return res.status(404).json({ status: "error", message: "Officer not found" });
+    }
+
+    res.status(500).json({
+      status: "error",
+      message: "An error occurred while fetching officer details",
+    });
+  }
+})
+exports.getmyprofile= asyncHandler(async(req,res)=>{
+  console.log('get profile')
+  const officerId = req.user.id;
+      if (!officerId) {
+      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
+    }
+  try{
+    const officerProfile = await userDao.getmyprofile(officerId);
+
+        res.status(200).json({
+      status: "success",
+      data: officerProfile,
+    });
+  } catch (error) {
+    console.error("Error fetching officer details:", error.message);
+
+    if (error.message === "Officer not found") {
+      return res.status(404).json({ status: "error", message: "Officer not found" });
+    }
+
+    res.status(500).json({
+      status: "error",
+      message: "An error occurred while fetching officer details",
+    });
+  }
+})
