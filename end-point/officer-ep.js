@@ -94,34 +94,6 @@ exports.getindividualauditsquestions = asyncHandler(async (req, res) => {
   }
 });
 
-// exports.setCheckQuestions = asyncHandler(async (req, res) => {
-//   const { id } = req.params;
-//   console.log("✅ Controller hit → setCheckQuestions | Question ID:", id);
-
-//   if (!id) {
-//     return res.status(400).json({
-//       success: false,
-//       message: "Question ID is required",
-//     });
-//   }
-
-//   try {
-//     await officerDao.setCheckQuestions(id);
-
-//     return res.status(200).json({
-//       success: true,
-//       message: "tickResult updated successfully",
-//       id,
-//     });
-//   } catch (error) {
-//     console.error("❌ Error in setCheckQuestions:", error.message);
-
-//     return res.status(500).json({
-//       success: false,
-//       message: error.message || "Failed to update tickResult",
-//     });
-//   }
-// });
 
 exports.setCheckQuestions = asyncHandler(async (req, res) => {
   const { id } = req.params;
@@ -228,4 +200,70 @@ exports.removePhotoProof = asyncHandler(async (req, res) => {
     }
   await officerDao.clearPhotoProofImage(id);
   res.status(200).json({ success: true, message: "Photo proof removed successfully" });
+});
+
+
+exports.setsaveProblem = asyncHandler(async (req, res) => {
+  const officerId = req.user.id;
+  const payload = req.body;
+  console.log("✅ Controller hit → setCheckQuestions | Question ID:", payload);
+
+  try {
+    const { id } = await officerDao.setsaveProblem(payload, officerId); // <-- capture return value
+
+    return res.status(200).json({
+      success: true,
+      message: "Problem saved successfully",
+      id, // now defined
+    });
+  } catch (error) {
+    console.error("❌ Error in setsaveProblem:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to save problem",
+    });
+  }
+});
+
+exports.getProblemsSolutionsById = asyncHandler(async (req, res) => {
+  const { slaveId } = req.params;
+
+  try {
+    const problems = await officerDao.getProblemsSolutionsBySlaveId(slaveId);
+
+    return res.status(200).json({
+      success: true,
+      count: problems.length,
+      data: problems,
+    });
+  } catch (error) {
+    console.error("❌ Error in getProblemsBySlaveId:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to fetch problems",
+    });
+  }
+});
+
+
+exports.updateProblem = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const payload = req.body;
+
+  try {
+    const { id: updatedId } = await officerDao.updateProblem(id, payload);
+
+    return res.status(200).json({
+      success: true,
+      message: "Problem updated successfully",
+      id: updatedId,
+    });
+  } catch (error) {
+    console.error("❌ Error in updateProblem:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Failed to update problem",
+    });
+  }
 });

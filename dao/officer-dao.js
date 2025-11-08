@@ -118,6 +118,10 @@ exports.getofficerVisits = async (officerId) => {
             WHEN cp.clusterId IS NOT NULL THEN fc.clsName
             ELSE NULL
           END AS farmerName,
+              CASE
+            WHEN cp.userId IS NOT NULL THEN ps.phoneNumber
+            ELSE NULL
+          END AS farmerMobile,
           CASE 
             WHEN cp.userId IS NOT NULL THEN cp.userId
             ELSE NULL
@@ -186,6 +190,7 @@ exports.getofficerVisits = async (officerId) => {
           os.tamilName AS servicetamilName,
           "govilinkjobs" AS auditType,
           CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
+          ps2.phoneNumber AS farmerMobile,
           ps2.id AS farmerId,
           NULL AS longitude,
           NULL AS latitude,
@@ -240,6 +245,7 @@ exports.getofficerVisitsDraft = async (officerId) => {
         cp.userId AS farmerId,
         cp.id AS certificationpaymentId,
         CONCAT( gcu.firstName, ' ',  gcu.lastName) AS farmerName,
+        gcu.phoneNumber AS farmerMobile,
         COUNT(slqi.id) AS totalTasks,
 
         -- ✅ Count completed by tick
@@ -314,6 +320,7 @@ exports.getindividualauditsquestions = async (certificationpaymentId) => {
         c.logo,
         c.srtName,
         c.createdAt,
+        sq.id AS slavequestionnaireId,
         c.id AS certificateId
       FROM slavequestionnaireitems AS slqi
       LEFT JOIN slavequestionnaire AS sq ON slqi.slaveId = sq.id
@@ -339,11 +346,12 @@ exports.getindividualauditsquestions = async (certificationpaymentId) => {
         logo: first.logo || null,
         srtName: first.srtName || "",
         createdAt: first.createdAt || null,
-        certificateId: first.certificateId || null,
+        slavequestionnaireId: first.slavequestionnaireId || null,
+         certificateId: first.certificateId || null
       };
 
       // ✅ Extract all questions (without duplicating certificate data)
-      const questions = results.map(({ logo, srtName, createdAt, certificateId, ...rest }) => rest);
+      const questions = results.map(({ logo, srtName, createdAt,slavequestionnaireId, certificateId, ...rest }) => rest);
 
       console.log("✅ Questions count:", questions.length);
       resolve({ certificate, questions });
@@ -497,6 +505,111 @@ exports.clearPhotoProofImage = async (id) => {
         return reject(new Error("Database error while clearing photo proof"));
       }
       resolve(result);
+    });
+  });
+};
+
+
+exports.setsaveProblem = async (payload, officerId) => {
+  console.log("DAO: Saving problem → Payload:", payload);
+
+  return new Promise((resolve, reject) => {
+    const { problem, solution, slavequestionnaireId } = payload;
+
+    if (!officerId) {
+      console.error("❌ Missing officerId");
+      return reject(new Error("Invalid officerId"));
+    }
+
+    // Step 1: Check if officer exists in feildofficer table
+    const checkSql = `SELECT id FROM feildofficer WHERE id = ?`;
+    db.plantcare.query(checkSql, [officerId], (checkErr, rows) => {
+      if (checkErr) {
+        console.error("❌ DB error checking officer:", checkErr.message);
+        return reject(new Error("Database error while checking officer"));
+      }
+
+      if (rows.length === 0) {
+        console.error("❌ Officer not found in feildofficer table:", officerId);
+        return reject(new Error(`Officer with ID ${officerId} not found`));
+      }
+
+      // Step 2: Proceed with insert into jobsuggestions
+      const insertSql = `
+        INSERT INTO jobsuggestions (slaveId, problem, solution, officerId, createdAt)
+        VALUES (?, ?, ?, ?, NOW())
+      `;
+
+      db.plantcare.query(insertSql, [slavequestionnaireId, problem, solution, officerId], (err, result) => {
+        if (err) {
+          console.error("❌ DB error inserting problem:", err.message);
+          return reject(new Error("Database error while saving problem"));
+        }
+
+        console.log("✅ Problem saved successfully → ID:", result.insertId);
+        resolve({ id: result.insertId });
+      });
+    });
+  });
+};
+
+exports.getProblemsSolutionsBySlaveId = async (slaveId) => {
+  console.log("DAO: Fetching problems for slaveId →", slaveId);
+
+  return new Promise((resolve, reject) => {
+    if (!slaveId) {
+      console.error("❌ Missing slaveId");
+      return reject(new Error("Invalid slaveId"));
+    }
+
+    const sql = `
+      SELECT id, problem, solution, createdAt
+      FROM jobsuggestions
+      WHERE slaveId = ?
+        ORDER BY createdAt ASC
+    `;
+
+    db.plantcare.query(sql, [slaveId], (err, results) => {
+      if (err) {
+        console.error("❌ DB error fetching problems:", err.message);
+        return reject(new Error("Database error while fetching problems"));
+      }
+
+      console.log("✅ Problems fetched successfully → Count:", results.length);
+      resolve(results);
+    });
+  });
+};
+
+exports.updateProblem = async (id, payload) => {
+  console.log("DAO: Updating problem → ID:", id, "| Payload:", payload);
+
+  return new Promise((resolve, reject) => {
+    const { problem, solution } = payload;
+
+    if (!id ) {
+      console.error("❌ Missing id or officerId");
+      return reject(new Error("Invalid input"));
+    }
+
+    const updateSql = `
+      UPDATE jobsuggestions
+      SET problem = ?, solution = ?
+      WHERE id = ? 
+    `;
+
+    db.plantcare.query(updateSql, [problem, solution, id], (err, result) => {
+      if (err) {
+        console.error("❌ DB error updating problem:", err.message);
+        return reject(new Error("Database error while updating problem"));
+      }
+
+      if (result.affectedRows === 0) {
+        return reject(new Error("Problem not found or not authorized to update"));
+      }
+
+      console.log("✅ Problem updated successfully → ID:", id);
+      resolve({ id });
     });
   });
 };

@@ -11,7 +11,9 @@ router.put('/check-question/:id', auth, officerEp.setCheckQuestions);
 router.post('/upload-proof-photo/:id', auth, upload.single('taskphotoProof'), officerEp.setCheckPhotoProof);
 router.delete("/remove-photo-proof/:id", officerEp.removePhotoProof);
 router.get('/officer-visits-draft',auth, officerEp.getOfficerVisitsDraft)
-
+router.post('/save-problem', auth, officerEp.setsaveProblem)
+router.get("/get-problems/:slaveId", auth, officerEp.getProblemsSolutionsById );
+router.put("/update-problem/:id", auth, officerEp.updateProblem);
 
 
 module.exports = router;
