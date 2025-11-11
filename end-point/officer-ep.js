@@ -58,6 +58,7 @@ exports.getOfficerVisitsDraft = asyncHandler(async (req, res) => {
 
 exports.getindividualauditsquestions = asyncHandler(async (req, res) => {
   const { certificationpaymentId } = req.params;
+   const { clusterId, farmId } = req.query; 
   console.log("📩 Hit get to certificate question:", certificationpaymentId);
 
   if (!certificationpaymentId) {
@@ -68,7 +69,7 @@ exports.getindividualauditsquestions = asyncHandler(async (req, res) => {
   }
 
   try {
-    const individualauditsquestions = await officerDao.getindividualauditsquestions(certificationpaymentId);
+    const individualauditsquestions = await officerDao.getindividualauditsquestions(certificationpaymentId,farmId,clusterId);
 
     if (!individualauditsquestions || !individualauditsquestions.questions?.length) {
       return res.status(404).json({
