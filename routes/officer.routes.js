@@ -14,6 +14,7 @@ router.get('/officer-visits-draft',auth, officerEp.getOfficerVisitsDraft)
 router.post('/save-problem', auth, officerEp.setsaveProblem)
 router.get("/get-problems/:slaveId", auth, officerEp.getProblemsSolutionsById );
 router.put("/update-problem/:id", auth, officerEp.updateProblem);
+router.put('/complete/:id', auth, officerEp.setcomplete)
 
 
 module.exports = router;

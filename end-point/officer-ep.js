@@ -98,9 +98,9 @@ exports.getindividualauditsquestions = asyncHandler(async (req, res) => {
 
 exports.setCheckQuestions = asyncHandler(async (req, res) => {
   const { id } = req.params;
-  const { tickResult } = req.body;
+  const { officerTickResult } = req.body;
 
-  console.log("✅ Controller hit → setCheckQuestions | Question ID:", id, "New tickResult:", tickResult);
+  console.log("✅ Controller hit → setCheckQuestions | Question ID:", id, "New tickResult:", officerTickResult);
 
   if (!id) {
     return res.status(400).json({
@@ -110,7 +110,7 @@ exports.setCheckQuestions = asyncHandler(async (req, res) => {
   }
 
   // ✅ Validate tickResult (must be 0 or 1)
-  if (tickResult !== 0 && tickResult !== 1) {
+  if (officerTickResult !== 0 && officerTickResult !== 1) {
     return res.status(400).json({
       success: false,
       message: "tickResult must be 0 or 1",
@@ -118,13 +118,13 @@ exports.setCheckQuestions = asyncHandler(async (req, res) => {
   }
 
   try {
-    await officerDao.setCheckQuestions(id, tickResult);
+    await officerDao.setCheckQuestions(id, officerTickResult);
 
     return res.status(200).json({
       success: true,
-      message: `tickResult updated successfully to ${tickResult}`,
+      message: `tickResult updated successfully to ${officerTickResult}`,
       id,
-      tickResult,
+      officerTickResult,
     });
   } catch (error) {
     console.error("❌ Error in setCheckQuestions:", error.message);
@@ -265,6 +265,36 @@ exports.updateProblem = asyncHandler(async (req, res) => {
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to update problem",
+    });
+  }
+});
+
+
+exports.setcomplete = asyncHandler(async (req, res) => {
+  const { id } = req.params;
+  const payload = req.body;
+  console.log("🔥 HITT COMPLETE →", id, payload);
+
+  try {
+    const result = await officerDao.setcomplete(id, payload);
+
+    // result = { success: true, message: "..." }
+    if (result.success) {
+      return res.status(200).json({
+        success: true,
+        message: result.message || "Audit status updated successfully",
+      });
+    } else {
+      return res.status(400).json({
+        success: false,
+        message: result.message || "Failed to update audit status",
+      });
+    }
+  } catch (error) {
+    console.error("❌ Error in setcomplete controller:", error.message);
+    return res.status(500).json({
+      success: false,
+      message: error.message || "Server error while updating audit",
     });
   }
 });

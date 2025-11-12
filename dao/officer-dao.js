@@ -83,7 +83,7 @@ AND (
       FROM slavequestionnaire AS sq
       LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
       WHERE sq.crtPaymentId = cp.id
-        AND (slqi.tickResult = 1 OR (slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> ''))
+        AND (slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> ''))
   )
 )
 
@@ -221,6 +221,7 @@ exports.getofficerVisitsDraft = async (officerId) => {
   return new Promise((resolve, reject) => {
     const individualSql = `
       SELECT 
+      fau.id,
         fau.jobId,
         fau.propose AS propose,
         cp.userId AS farmerId,
@@ -228,14 +229,14 @@ exports.getofficerVisitsDraft = async (officerId) => {
         CONCAT( gcu.firstName, ' ',  gcu.lastName) AS farmerName,
         gcu.phoneNumber AS farmerMobile,
         COUNT(slqi.id) AS totalTasks,
-        SUM(CASE WHEN slqi.tickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-        SUM(CASE WHEN slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
+        SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
+        SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
         SUM(
-          CASE WHEN slqi.tickResult = 1 OR (slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '') THEN 1 ELSE 0 END
+          CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
         ) AS totalCompleted,
         ROUND(
           (SUM(
-            CASE WHEN slqi.tickResult = 1 OR (slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '') THEN 1 ELSE 0 END
+            CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
           ) / COUNT(slqi.id)) * 100, 1
         ) AS completionPercentage
       FROM feildaudits AS fau
@@ -249,12 +250,13 @@ exports.getofficerVisitsDraft = async (officerId) => {
         AND DATE(fau.sheduleDate) = CURDATE()
         AND cp.clusterId IS NULL
       GROUP BY fau.id, fau.jobId, cp.userId,  fau.status
-      HAVING completionPercentage < 100 OR (completionPercentage = 100 AND fau.status = 'Pending')
+      HAVING completionPercentage < 100 AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
       ORDER BY completionPercentage ASC;
     `;
 
     const clusterSql = `
   SELECT 
+  fau.id,
     fau.jobId,
     fau.propose AS propose,
     cp.userId AS farmerId,
@@ -263,15 +265,14 @@ exports.getofficerVisitsDraft = async (officerId) => {
     ps.phoneNumber AS farmerMobile,
     cp.clusterId ,
     f.id AS farmId,
-    COUNT(slqi.id) AS totalTasks,
-    SUM(CASE WHEN slqi.tickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-    SUM(CASE WHEN slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
+    SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
+    SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
     SUM(
-      CASE WHEN slqi.tickResult = 1 OR (slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '') THEN 1 ELSE 0 END
+      CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
     ) AS totalCompleted,
     ROUND(
       (SUM(
-        CASE WHEN slqi.tickResult = 1 OR (slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '') THEN 1 ELSE 0 END
+        CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
       ) / COUNT(slqi.id)) * 100, 1
     ) AS completionPercentage
   FROM feildaudits AS fau
@@ -288,8 +289,8 @@ exports.getofficerVisitsDraft = async (officerId) => {
     AND fauc.isCompleted = 0
     AND DATE(fau.sheduleDate) = CURDATE()
     AND cp.clusterId IS NOT NULL
-  GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id
-  HAVING completionPercentage < 100 OR (completionPercentage = 100 AND fau.status = 'Pending')
+  GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
+  HAVING completionPercentage < 100  AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
   ORDER BY completionPercentage ASC;
 `;
 
@@ -460,7 +461,7 @@ exports.setCheckQuestions = async (id) => {
   return new Promise((resolve, reject) => {
     // Step 1: Get current tickResult
     const selectSql = `
-      SELECT tickResult 
+      SELECT officerTickResult
       FROM slavequestionnaireitems 
       WHERE id = ?
     `;
@@ -476,13 +477,13 @@ exports.setCheckQuestions = async (id) => {
         return reject(new Error("Question not found"));
       }
 
-      const currentTick = results[0].tickResult || 0;
+      const currentTick = results[0].officerTickResult || 0;
       const newTick = currentTick === 1 ? 0 : 1;
 
       // Step 2: Update with toggled value
       const updateSql = `
         UPDATE slavequestionnaireitems
-        SET tickResult = ?
+        SET officerTickResult = ?
         WHERE id = ?
       `;
 
@@ -507,7 +508,7 @@ exports.setCheckQuestions = async (id) => {
 exports.getexistingTaskImageImage = async (id) => {
   return new Promise((resolve, reject) => {
     const sql = `
-      SELECT uploadImage
+      SELECT officerUploadImage
       FROM slavequestionnaireitems
       WHERE id = ?
       LIMIT 1
@@ -537,7 +538,7 @@ exports.setCheckPhotoProof = async (id, uploadImage) => {
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE slavequestionnaireitems
-      SET uploadImage = ?
+      SET officerUploadImage = ?
       WHERE id = ?
     `;
 
@@ -563,7 +564,7 @@ exports.clearPhotoProofImage = async (id) => {
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE slavequestionnaireitems
-      SET uploadImage = NULL
+      SET officerUploadImage = NULL
       WHERE id = ?
     `;
     db.plantcare.query(sql, [id], (err, result) => {
@@ -678,5 +679,90 @@ exports.updateProblem = async (id, payload) => {
       console.log("✅ Problem updated successfully → ID:", id);
       resolve({ id });
     });
+  });
+};
+
+
+
+exports.setcomplete = async (id, payload) => {
+  console.log("DAO: Updating problem → ID:", id, "| Payload:", payload);
+
+  const { isClusterAudit, farmId } = payload;
+
+  return new Promise((resolve, reject) => {
+    if (!id) return reject(new Error("Audit ID is required"));
+
+    // CASE 1: Non-cluster audit → directly mark feildaudit as completed
+    if (!isClusterAudit) {
+      const sql = `UPDATE feildaudits SET status = 'Completed' WHERE id = ?`;
+      db.plantcare.query(sql, [id], (err, result) => {
+        if (err) {
+          console.error("❌ DB error updating feildaudit:", err.message);
+          return reject(new Error("Database error while updating feildaudit"));
+        }
+        if (result.affectedRows === 0) {
+          return reject(new Error("Audit not found or already completed"));
+        }
+        console.log(`✅ feildaudit ${id} marked as Completed`);
+        return resolve({ success: true, message: "Audit marked as completed" });
+      });
+    }
+
+    // CASE 2: Cluster audit → update farmclusterfarms first
+    else {
+      const sqlUpdateFarm = `
+        UPDATE feildauditcluster 
+        SET isCompleted = 1 
+        WHERE feildAuditId = ? AND farmId = ?
+      `;
+
+      db.plantcare.query(sqlUpdateFarm, [id, farmId], (err, result) => {
+        if (err) {
+          console.error("❌ DB error updating farmclusterfarmers:", err.message);
+          return reject(new Error("Database error while updating farm completion"));
+        }
+
+        if (result.affectedRows === 0) {
+          return reject(new Error("Farm not found or already completed"));
+        }
+
+        console.log(`✅ Farm ${farmId} marked complete for audit ${id}`);
+
+        // Now check if all farms in this audit are complete
+        const sqlCheckAll = `
+          SELECT COUNT(*) AS total, 
+                 SUM(CASE WHEN isCompleted = 1 THEN 1 ELSE 0 END) AS completed
+          FROM feildauditcluster
+          WHERE feildAuditId = ?
+        `;
+
+        db.plantcare.query(sqlCheckAll, [id], (err, rows) => {
+          if (err) {
+            console.error("❌ DB error checking farm completion:", err.message);
+            return reject(new Error("Database error while verifying cluster completion"));
+          }
+
+          const { total, completed } = rows[0];
+          console.log(`🔍 Cluster audit ${id}: ${completed}/${total} farms completed`);
+
+          if (total === completed) {
+            // All farms completed → mark feildaudit as completed
+            const sqlUpdateAudit = `
+              UPDATE feildaudits SET status = 'Completed' WHERE id = ?
+            `;
+            db.plantcare.query(sqlUpdateAudit, [id], (err2, result2) => {
+              if (err2) {
+                console.error("❌ DB error updating feildaudit:", err2.message);
+                return reject(new Error("Database error while completing feildaudit"));
+              }
+              console.log(`🏁 Cluster audit ${id} fully completed`);
+              return resolve({ success: true, message: "Cluster audit fully completed" });
+            });
+          } else {
+            return resolve({ success: true, message: "Farm marked complete, cluster still pending" });
+          }
+        });
+      });
+    }
   });
 };

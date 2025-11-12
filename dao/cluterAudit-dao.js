@@ -32,8 +32,8 @@ exports.getclusterVisits = async (feildauditId) => {
         CASE 
           WHEN SUM(
             CASE 
-              WHEN slqi.tickResult = 1 
-                   OR (slqi.uploadImage IS NOT NULL AND slqi.uploadImage <> '') 
+              WHEN slqi.officerTickResult = 1 
+                   OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') 
               THEN 1 
               ELSE 0 
             END
