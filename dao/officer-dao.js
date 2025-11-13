@@ -91,7 +91,7 @@ AND (
 
         SELECT 
           glj.jobId AS jobId,
-          jao.id AS id,
+          glj.id AS id,
           "Requested" AS propose,
           os.englishName AS serviceenglishName,
           os.sinhalaName AS servicesinhalaName,
@@ -119,7 +119,7 @@ AND (
         WHERE jao.officerId = ?
           AND DATE(glj.sheduleDate) = CURDATE()
           AND jao.isActive = 1
-          AND glj.status = 'Pending'
+          AND glj.status = 'Request Reviewed'
       ) AS combinedResults
       ORDER BY combinedResults.sheduleDate DESC
     `;
