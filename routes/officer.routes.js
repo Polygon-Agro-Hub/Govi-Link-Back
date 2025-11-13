@@ -17,4 +17,7 @@ router.put("/update-problem/:id", auth, officerEp.updateProblem);
 router.put('/complete/:id', auth, officerEp.setcomplete)
 
 
+router.get('/visits',auth, officerEp.getVisits)
+
+
 module.exports = router;

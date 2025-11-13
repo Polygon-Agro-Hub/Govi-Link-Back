@@ -4,6 +4,30 @@ const jwt = require("jsonwebtoken");
 const uploadFileToR2 = require('../Middlewares/s3upload');
 const delectfilesOnR2 = require('../Middlewares/s3delete')
 
+exports.getVisits = asyncHandler(async (req, res) => {
+  const officerId = req.user.id;
+  console.log("Officer ID:", officerId);
+
+  try {
+    // This should call the combined DAO function
+    const { visits, draftVisits } = await officerDao.getOfficerVisitsCombined(officerId);
+
+    res.status(200).json({
+      status: "success",
+      data: {
+        visits,
+        draftVisits,
+      },
+    });
+  } catch (error) {
+    console.error("❌ Error fetching visits:", error.message);
+    res.status(500).json({
+      status: "error",
+      message: error.message || "Failed to fetch visits",
+    });
+  }
+});
+
 exports.getOfficerVisits  = asyncHandler(async (req, res) => {
       const officerId = req.user.id;
       console.log(officerId)
