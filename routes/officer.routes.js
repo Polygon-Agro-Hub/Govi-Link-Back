@@ -18,6 +18,8 @@ router.put('/complete/:id', auth, officerEp.setcomplete)
 
 
 router.get('/visits',auth, officerEp.getVisits)
+router.get('/visits/:date',auth, officerEp.getVisitsbydate)
+
 
 
 module.exports = router;
