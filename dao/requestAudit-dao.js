@@ -154,7 +154,7 @@ exports.setcomplete = async (id) => {
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE govilinkjobs
-      SET status = 'Finished'
+      SET status = 'Completed'
       WHERE id = ?
     `;
 

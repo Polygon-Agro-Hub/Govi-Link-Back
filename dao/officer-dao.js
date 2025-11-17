@@ -128,7 +128,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         WHERE jao.officerId = ?
           AND DATE(glj.sheduleDate) = CURDATE()
           AND jao.isActive = 1
-          AND glj.status = 'Request Reviewed'
+          AND glj.status = 'Pending'
           AND NOT EXISTS (
               SELECT 1
               FROM govijoblinksuggestions AS gjs
@@ -243,7 +243,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       WHERE jao.officerId = ?
         AND DATE(glj.sheduleDate) = CURDATE()
         AND jao.isActive = 1
-        AND glj.status = 'Request Reviewed'
+        AND glj.status = 'Pending'
       HAVING completionPercentage > 0 AND completionPercentage <= 100
     `;
 
@@ -390,7 +390,7 @@ AND (
         WHERE jao.officerId = ?
           AND DATE(glj.sheduleDate) = CURDATE()
           AND jao.isActive = 1
-          AND glj.status = 'Request Reviewed'
+          AND glj.status = 'Pending'
                   AND NOT EXISTS (
               SELECT 1
               FROM govijoblinksuggestions AS gjs
@@ -528,7 +528,7 @@ const requestSql = `
   WHERE jao.officerId = ?
     AND DATE(glj.sheduleDate) = CURDATE()
     AND jao.isActive = 1
-    AND glj.status = 'Request Reviewed'
+    AND glj.status = 'Pending'
     HAVING completionPercentage > 0 AND completionPercentage <= 100
 `;
 
@@ -954,7 +954,7 @@ exports.setcomplete = async (id, payload) => {
 
     // CASE 1: Non-cluster audit → directly mark feildaudit as completed
     if (!isClusterAudit) {
-      const sql = `UPDATE feildaudits SET status = 'Completed' WHERE id = ?`;
+      const sql = `UPDATE feildaudits SET status = 'Completed', completeDate = NOW() WHERE id = ?`;
       db.plantcare.query(sql, [id], (err, result) => {
         if (err) {
           console.error("❌ DB error updating feildaudit:", err.message);
@@ -1008,7 +1008,7 @@ exports.setcomplete = async (id, payload) => {
           if (total === completed) {
             // All farms completed → mark feildaudit as completed
             const sqlUpdateAudit = `
-              UPDATE feildaudits SET status = 'Completed' WHERE id = ?
+              UPDATE feildaudits SET status = 'Completed', completeDate = NOW() WHERE id = ?
             `;
             db.plantcare.query(sqlUpdateAudit, [id], (err2, result2) => {
               if (err2) {
@@ -1047,12 +1047,36 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     console.log("✔ isOverdue:", isOverdue);
 
     // Dynamic conditions
-    const dateCondition = isOverdue
-      ? "DATE(fau.sheduleDate) < DATE(CURDATE()) AND (fau.status = 'Pending' OR DATE(fau.completeDate) > DATE(fau.sheduleDate))"
-      : "DATE(fau.sheduleDate) = ?";
+    // const dateCondition = isOverdue
+    //   ? "DATE(fau.sheduleDate) < DATE(CURDATE()) AND fau.status = 'Pending'"
+    //   : "DATE(fau.sheduleDate) = ?";
+
+const dateCondition = isOverdue
+  ? `
+    DATE(fau.sheduleDate) < DATE(CURDATE()) 
+    AND fau.status = 'Pending'
+    AND (
+      cp.clusterId IS NULL 
+      OR (
+          (
+            SELECT ROUND(
+              (
+                (SELECT COUNT(*) FROM feildauditcluster AS fauc 
+                  WHERE fauc.feildAuditId = fau.id AND fauc.isCompleted = 1)
+                /
+                (SELECT COUNT(*) FROM feildauditcluster AS fauc 
+                  WHERE fauc.feildAuditId = fau.id)
+              ) * 100, 0
+            )
+          ) < 20
+      )
+    )
+  `
+  : "DATE(fau.sheduleDate) = ?";
+
 
     const gljDateCondition = isOverdue
-      ? "DATE(glj.sheduleDate) < DATE(CURDATE())  AND jao.isActive = 1 AND glj.status = 'Request Reviewed'"
+      ? "DATE(glj.sheduleDate) < DATE(CURDATE())  AND jao.isActive = 1 AND glj.status = 'Pending'"
       : "DATE(glj.sheduleDate) = ?";
 
     console.log("FAU condition:", dateCondition);
@@ -1098,7 +1122,24 @@ END AS district,
         WHERE fauc.feildAuditId = fau.id
       )
       ELSE NULL
-    END AS totalClusterCount
+    END AS totalClusterCount,
+    CASE
+  WHEN cp.clusterId IS NOT NULL THEN (
+    CASE
+      WHEN 
+        (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id) = 0
+      THEN 0
+      ELSE ROUND(
+        (
+          (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id AND fauc.isCompleted = 1)
+          /
+          (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id)
+        ) * 100
+      , 0)
+    END
+  )
+  ELSE NULL
+END AS completionPercentage
 
         FROM feildaudits AS fau
         LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
@@ -1127,7 +1168,8 @@ END AS district,
           NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
           glj.sheduleDate,
           NULL AS completedClusterCount,
-          NULL AS totalClusterCount
+          NULL AS totalClusterCount,
+          NULL AS completionPercentage
         FROM jobassignofficer AS jao
         LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
         LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
