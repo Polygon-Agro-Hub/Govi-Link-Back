@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 exports.loginUser = async (empId, password) => {
   try {
     const sql = `
-      SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate
+      SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate,companyId 
       FROM feildofficer
       WHERE empId = ? AND status = "Approved"
     `;
@@ -27,7 +27,8 @@ exports.loginUser = async (empId, password) => {
       id: user.id,
       role: user.role,
       passwordUpdate: user.passwordUpdate,
-      status: user.status
+      status: user.status,
+      companyId: user.companyId
     };
   } catch (err) {
     throw new Error('Database error:' + err.message);
