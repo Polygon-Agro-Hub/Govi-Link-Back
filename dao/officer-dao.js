@@ -1,3 +1,4 @@
+const uploadFileToS3 = require('../Middlewares/s3upload');
 const db = require('../startup/database');
 
 exports.getOfficerVisitsCombined = async (officerId) => {
@@ -1158,4 +1159,290 @@ END AS district,
       resolve(results);
     });
   });
+};
+
+// Get field officers with optional search
+exports.getFieldOfficers = async (irmId, search = '') => {
+    return new Promise((resolve, reject) => {
+        let sql = `
+            SELECT 
+                firstName,
+                firstNameSinhala,
+                firstNameTamil,
+                lastName,
+                lastNameSinhala,
+                lastNameTamil,
+                empId,
+                status,
+                profile
+            FROM feildofficer 
+            WHERE irmId = ?
+        `;
+
+        const queryParams = [irmId];
+
+        if (search && search.trim() !== '') {
+            sql += `
+                AND (
+                    firstName LIKE ? OR 
+                    firstNameSinhala LIKE ? OR 
+                    firstNameTamil LIKE ? OR 
+                    lastName LIKE ? OR 
+                    lastNameSinhala LIKE ? OR 
+                    lastNameTamil LIKE ? OR 
+                    empId LIKE ? OR 
+                    status LIKE ?
+                )
+            `;
+
+            const searchPattern = `%${search}%`;
+            for (let i = 0; i < 8; i++) {
+                queryParams.push(searchPattern);
+            }
+        }
+
+        sql += ` ORDER BY createdAt DESC`;
+
+        db.plantcare.query(sql, queryParams, (err, results) => {
+            if (err) {
+                return reject(new Error("Database error"));
+            }
+
+            resolve({
+                data: results,
+                count: results.length
+            });
+        });
+    });
+};
+
+// Create a new field officer
+exports.createFieldOfficer = async (irmId, officerData, files) => {
+    return new Promise(async (resolve, reject) => {
+        try {
+            // Convert assignDistrict array to string for database
+            const assignDistrictString = Array.isArray(officerData.assignDistrict) 
+                ? officerData.assignDistrict.join(', ') 
+                : officerData.assignDistrict;
+
+            // Handle languages conversion - convert to comma-separated string
+            let languageString = "";
+            if (typeof officerData.languages === 'string') {
+                try {
+                    // Parse the JSON string
+                    const languagesObj = JSON.parse(officerData.languages);
+                    // Convert to comma-separated string of selected languages
+                    languageString = Object.keys(languagesObj)
+                        .filter(lang => languagesObj[lang])
+                        .join(', ');
+                } catch (error) {
+                    languageString = officerData.languages;
+                }
+            } else if (typeof officerData.languages === 'object') {
+                // If it's already an object, convert to comma-separated string
+                languageString = Object.keys(officerData.languages)
+                    .filter(lang => officerData.languages[lang])
+                    .join(', ');
+            }
+
+            // Upload files to S3 if they exist
+            let profileUrl = null;
+            let frontNicUrl = null;
+            let backNicUrl = null;
+            let backPassbookUrl = null;
+            let contractUrl = null;
+
+            // Upload profile image if provided
+            if (files.profile && files.profile[0]) {
+                profileUrl = await uploadFileToS3(
+                    files.profile[0].buffer,
+                    files.profile[0].originalname,
+                    'field-officer/profile'
+                );
+            }
+
+            if (files.frontNic && files.frontNic[0]) {
+                frontNicUrl = await uploadFileToS3(
+                    files.frontNic[0].buffer,
+                    files.frontNic[0].originalname,
+                    'field-officer/front-nic'
+                );
+            }
+
+            if (files.backNic && files.backNic[0]) {
+                backNicUrl = await uploadFileToS3(
+                    files.backNic[0].buffer,
+                    files.backNic[0].originalname,
+                    'field-officer/back-nic'
+                );
+            }
+
+            if (files.backPassbook && files.backPassbook[0]) {
+                backPassbookUrl = await uploadFileToS3(
+                    files.backPassbook[0].buffer,
+                    files.backPassbook[0].originalname,
+                    'field-officer/passbooks'
+                );
+            }
+
+            if (files.contract && files.contract[0]) {
+                contractUrl = await uploadFileToS3(
+                    files.contract[0].buffer,
+                    files.contract[0].originalname,
+                    'field-officer/contracts'
+                );
+            }
+
+            // Check for existing NIC, email, and phone numbers
+            const checkExistingQuery = `
+                SELECT id FROM feildofficer 
+                WHERE nic = ? OR email = ? OR (phoneCode1 = ? AND phoneNumber1 = ?)
+            `;
+
+            db.plantcare.query(
+                checkExistingQuery, 
+                [
+                    officerData.nic, 
+                    officerData.email, 
+                    officerData.phoneCode1, 
+                    officerData.phoneNumber1
+                ], 
+                (checkErr, checkResults) => {
+                    if (checkErr) {
+                        console.error("Database check error:", checkErr.message);
+                        return reject(new Error("Database error while checking existing records"));
+                    }
+
+                    if (checkResults.length > 0) {
+                        return reject(new Error("Officer with this NIC, email or phone number already exists"));
+                    }
+
+                    // Prepare SQL query - now including profile
+                    const sql = `
+                        INSERT INTO feildofficer (
+                            irmId, empType, language, assignDistrict, firstName, firstNameSinhala, 
+                            firstNameTamil, lastName, lastNameSinhala, lastNameTamil, phoneCode1, 
+                            phoneNumber1, phoneCode2, phoneNumber2, nic, email, house, street, 
+                            city, distrct, province, country, comAmount, accName, accNumber, 
+                            bank, branch, profile, frontNic, backNic, backPassbook, contract, status
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                    `;
+
+                    const values = [
+                        irmId, 
+                        officerData.empType,
+                        languageString, 
+                        assignDistrictString,
+                        officerData.firstName,
+                        officerData.firstNameSinhala,
+                        officerData.firstNameTamil,
+                        officerData.lastName,
+                        officerData.lastNameSinhala,
+                        officerData.lastNameTamil,
+                        officerData.phoneCode1,
+                        officerData.phoneNumber1,
+                        officerData.phoneCode2 || null,
+                        officerData.phoneNumber2 || null,
+                        officerData.nic,
+                        officerData.email,
+                        officerData.house,
+                        officerData.street,
+                        officerData.city,
+                        officerData.distrct,
+                        officerData.province,
+                        officerData.country,
+                        officerData.comAmount,
+                        officerData.accName,
+                        officerData.accNumber,
+                        officerData.bank,
+                        officerData.branch,
+                        profileUrl, // Added profile URL
+                        frontNicUrl,
+                        backNicUrl,
+                        backPassbookUrl,
+                        contractUrl,
+                        'Not Approved' // Default status
+                    ];
+
+                    console.log('Executing SQL with values:', values);
+
+                    db.plantcare.query(sql, values, (err, results) => {
+                        if (err) {
+                            console.error("Database error:", err.message);
+                            
+                            // Handle duplicate entry errors
+                            if (err.code === 'ER_DUP_ENTRY') {
+                                return reject(new Error("Officer with this NIC or email already exists"));
+                            }
+                            
+                            return reject(new Error("Database error: " + err.message));
+                        }
+
+                        if (results.affectedRows === 0) {
+                            return reject(new Error("Failed to create field officer"));
+                        }
+
+                        console.log('Field officer created successfully with ID:', results.insertId);
+                        
+                        resolve({
+                            id: results.insertId,
+                            message: "Field officer created successfully."
+                        });
+                    });
+                }
+            );
+
+        } catch (error) {
+            console.error("Error in createFieldOfficer:", error);
+            reject(error);
+        }
+    });
+};
+
+// Check existing NIC
+exports.checkNicExists = async (nic) => {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT id FROM feildofficer WHERE nic = ?`;
+        
+        db.plantcare.query(sql, [nic], (err, results) => {
+            if (err) {
+                console.error("Database error:", err.message);
+                return reject(new Error("Database error"));
+            }
+
+            resolve(results.length > 0);
+        });
+    });
+};
+
+// Check existing email
+exports.checkEmailExists = async (email) => {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT id FROM feildofficer WHERE email = ?`;
+        
+        db.plantcare.query(sql, [email], (err, results) => {
+            if (err) {
+                console.error("Database error:", err.message);
+                return reject(new Error("Database error"));
+            }
+
+            resolve(results.length > 0);
+        });
+    });
+};
+
+// Check existing phone number
+exports.checkPhoneExists = async (phoneCode, phoneNumber) => {
+    return new Promise((resolve, reject) => {
+        const sql = `SELECT id FROM feildofficer WHERE phoneCode1 = ? AND phoneNumber1 = ?`;
+        
+        db.plantcare.query(sql, [phoneCode, phoneNumber], (err, results) => {
+            if (err) {
+                console.error("Database error:", err.message);
+                return reject(new Error("Database error"));
+            }
+
+            resolve(results.length > 0);
+        });
+    });
 };
