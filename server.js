@@ -59,9 +59,11 @@ DatabaseConnection(admin, "Admin");
 const userroute = require('./routes/user.routes.js');
 const officerroutes = require('./routes/officer.routes.js')
 const clusterauditroutes = require('./routes/clusteaudit.routes.js')
+const requestauditroutes = require('./routes/requestaudit.routes.js')
 app.use(`${BASE_PATH}/api/auth`,userroute);
 app.use(`${BASE_PATH}/api/officer`,officerroutes)
 app.use(`${BASE_PATH}/api/cluster-audit`, clusterauditroutes)
+app.use(`${BASE_PATH}/api/request-audit`, requestauditroutes)
 
 app.use((err, req, res, next) => {
     console.error(err.stack);
