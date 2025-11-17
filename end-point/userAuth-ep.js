@@ -116,3 +116,40 @@ exports.getmyprofile= asyncHandler(async(req,res)=>{
     });
   }
 })
+
+exports.changePassword = asyncHandler(async (req, res) => {
+  const officerId = req.user.id;
+  const { currentPassword, newPassword } = req.body;
+  console.log("Hit change password");
+
+  try {
+    const result = await userDao.changePassword(officerId, currentPassword, newPassword);
+    res.status(200).json({
+      status: "success",
+      message: result.message,
+    });
+  } catch (error) {
+    console.error("Error changing password:", error.message);
+
+    // Custom error handling
+    if (error.message === "Current password is incorrect") {
+      return res.status(401).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+
+    if (error.message === "Officer not found") {
+      return res.status(404).json({
+        status: "error",
+        message: error.message,
+      });
+    }
+
+    // Default to 400 for other errors
+    res.status(400).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});

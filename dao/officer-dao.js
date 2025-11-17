@@ -1198,6 +1198,7 @@ END AS completionPercentage
       if (err) return reject(new Error("Database error: " + err.message));
       console.log("✅ Visits fetched successfully → Count:", results.length);
       resolve(results);
+      console.log({ results });
     });
   });
 };
