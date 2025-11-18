@@ -1260,6 +1260,7 @@ exports.getFieldOfficers = async (irmId, search = '') => {
 };
 
 // Create a new field officer
+// Create a new field officer
 exports.createFieldOfficer = async (irmId, officerData, files) => {
     return new Promise(async (resolve, reject) => {
         try {
@@ -1287,6 +1288,50 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
                     .filter(lang => officerData.languages[lang])
                     .join(', ');
             }
+
+            // Generate employee ID
+            const generateEmployeeId = () => {
+                return new Promise((resolve, reject) => {
+                    // First, get the latest employee ID from the database
+                    const getLatestIdQuery = `
+                        SELECT empId FROM feildofficer 
+                        WHERE empId LIKE 'FIO%' 
+                        ORDER BY id DESC 
+                        LIMIT 1
+                    `;
+                    
+                    db.plantcare.query(getLatestIdQuery, (err, results) => {
+                        if (err) {
+                            console.error("Error getting latest employee ID:", err.message);
+                            return reject(new Error("Database error while generating employee ID"));
+                        }
+
+                        let nextNumber = 1; // Default starting number
+
+                        if (results.length > 0) {
+                            const latestEmpId = results[0].empId;
+                            if (latestEmpId && latestEmpId.startsWith('FIO')) {
+                                // Extract the number part and increment
+                                const numberPart = latestEmpId.substring(3); // Remove 'FIO' prefix
+                                const currentNumber = parseInt(numberPart, 10);
+                                if (!isNaN(currentNumber)) {
+                                    nextNumber = currentNumber + 1;
+                                }
+                            }
+                        }
+
+                        // Format the number with leading zeros (5 digits total)
+                        const formattedNumber = nextNumber.toString().padStart(5, '0');
+                        const newEmpId = `FIO${formattedNumber}`;
+                        
+                        resolve(newEmpId);
+                    });
+                });
+            };
+
+            // Generate the employee ID
+            const empId = await generateEmployeeId();
+            const jobRole = "Field Officer"; // Always set to Field Officer
 
             // Upload files to S3 if they exist
             let profileUrl = null;
@@ -1360,20 +1405,22 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
                         return reject(new Error("Officer with this NIC, email or phone number already exists"));
                     }
 
-                    // Prepare SQL query - now including profile
+                    // Prepare SQL query - UPDATED with correct number of placeholders (35)
                     const sql = `
                         INSERT INTO feildofficer (
-                            irmId, empType, language, assignDistrict, firstName, firstNameSinhala, 
+                            irmId, empType, empId, JobRole, language, assignDistrict, firstName, firstNameSinhala, 
                             firstNameTamil, lastName, lastNameSinhala, lastNameTamil, phoneCode1, 
                             phoneNumber1, phoneCode2, phoneNumber2, nic, email, house, street, 
                             city, distrct, province, country, comAmount, accName, accNumber, 
                             bank, branch, profile, frontNic, backNic, backPassbook, contract, status
-                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                     `;
 
                     const values = [
                         irmId, 
                         officerData.empType,
+                        empId, // Auto-generated employee ID
+                        jobRole, // Always "Field Officer"
                         languageString, 
                         assignDistrictString,
                         officerData.firstName,
@@ -1399,7 +1446,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
                         officerData.accNumber,
                         officerData.bank,
                         officerData.branch,
-                        profileUrl, // Added profile URL
+                        profileUrl,
                         frontNicUrl,
                         backNicUrl,
                         backPassbookUrl,
@@ -1408,10 +1455,16 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
                     ];
 
                     console.log('Executing SQL with values:', values);
+                    console.log('Generated Employee ID:', empId);
+                    console.log('Job Role:', jobRole);
+                    console.log('Number of columns in SQL:', 35); // Count of columns listed
+                    console.log('Number of values provided:', values.length); // Should match
 
                     db.plantcare.query(sql, values, (err, results) => {
                         if (err) {
                             console.error("Database error:", err.message);
+                            console.error("SQL:", sql);
+                            console.error("Values count:", values.length);
                             
                             // Handle duplicate entry errors
                             if (err.code === 'ER_DUP_ENTRY') {
@@ -1426,9 +1479,12 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
                         }
 
                         console.log('Field officer created successfully with ID:', results.insertId);
+                        console.log('Employee ID:', empId);
                         
                         resolve({
                             id: results.insertId,
+                            empId: empId,
+                            jobRole: jobRole,
                             message: "Field officer created successfully."
                         });
                     });
