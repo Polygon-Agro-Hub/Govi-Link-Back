@@ -7,5 +7,6 @@ const userAuthEp = require('../end-point/userAuth-ep');
 router.post('/login', userAuthEp.login);
 router.get('/user-profile', auth, userAuthEp.getprofile)
 router.get('/my-profile', auth, userAuthEp.getmyprofile)
+router.post('/change-password', auth, userAuthEp.changePassword)
 
 module.exports = router;

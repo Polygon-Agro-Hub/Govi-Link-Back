@@ -4,7 +4,7 @@ const bcrypt = require('bcrypt');
 exports.loginUser = async (empId, password) => {
   try {
     const sql = `
-      SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate
+      SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate,companyId 
       FROM feildofficer
       WHERE empId = ? AND status = "Approved"
     `;
@@ -27,7 +27,8 @@ exports.loginUser = async (empId, password) => {
       id: user.id,
       role: user.role,
       passwordUpdate: user.passwordUpdate,
-      status: user.status
+      status: user.status,
+      companyId: user.companyId
     };
   } catch (err) {
     throw new Error('Database error:' + err.message);
@@ -84,3 +85,40 @@ db.plantcare.query(sql, [officerId], (err, results) => {
   }
 )
 }
+
+exports.changePassword = async (officerId, currentPassword, newPassword) => {
+  return new Promise((resolve, reject) => {
+    const sql = `
+      SELECT password
+      FROM feildofficer
+      WHERE id = ?
+    `;    
+    db.plantcare.query(sql, [officerId], async (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return reject(new Error("Database error"));
+      }
+      if (results.length === 0) {
+        return reject(new Error("Officer not found"));
+      }
+      const user = results[0];
+      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      if (!isPasswordValid) {
+        return reject(new Error("Current password is incorrect"));
+      }
+      const hashedNewPassword = await bcrypt.hash(newPassword, 10);
+      const updateSql = `
+        UPDATE feildofficer
+        SET password = ?, passwordUpdated = 1
+        WHERE id = ?
+      `;
+      db.plantcare.query(updateSql, [hashedNewPassword, officerId], (updateErr, updateResults) => {
+        if (updateErr) {
+          console.error("Database error:", updateErr.message);
+          return reject(new Error("Database error"));
+        }
+        resolve({ success: true, message: "Password changed successfully" });
+      });
+    });
+  });
+};
