@@ -1260,7 +1260,6 @@ exports.getFieldOfficers = async (irmId, search = '') => {
 };
 
 // Create a new field officer
-// Create a new field officer
 exports.createFieldOfficer = async (irmId, officerData, files) => {
     return new Promise(async (resolve, reject) => {
         try {
