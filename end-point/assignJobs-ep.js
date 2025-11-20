@@ -73,8 +73,8 @@ exports.assignOfficerToFieldAudits = asyncHandler(async (req, res) => {
       jobIds, 
       date, 
       assignedBy,
-      propose,        // Pass propose
-      fieldAuditId    // Pass fieldAuditId
+      propose,    
+      fieldAuditId   
     );
 
     res.status(200).json({
