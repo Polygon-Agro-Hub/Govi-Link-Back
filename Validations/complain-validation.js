@@ -2,7 +2,7 @@ const Joi = require("joi");
 
 
 // Joi validation schema
-exports.createComplain = Joi.object({
+ const createComplain = Joi.object({
     language: Joi.string().required().messages({
         "string.empty": "Language is required.",
     }),
@@ -17,3 +17,7 @@ exports.createComplain = Joi.object({
         "any.required": "Farmer ID is required.",
     }),
 });
+
+module.exports = {
+    createComplain
+};
