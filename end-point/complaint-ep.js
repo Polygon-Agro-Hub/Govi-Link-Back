@@ -1,9 +1,9 @@
 const complaintDao = require("../dao/complaint-dao");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
-const {
-    createComplain
-} = require('../validations/complain-validation');
+// const {
+//     createComplain
+// } = require('../validations/complain-validation');
 
 
 exports.getComplainCategory = asyncHandler(async (req, res) => {
@@ -31,7 +31,7 @@ exports.createComplain = asyncHandler(async (req, res) => {
         const YYMMDD = today.toISOString().slice(2, 10).replace(/-/g, '');
         const datePrefix = `GC${YYMMDD}`;
 
-        const { value, error } = createComplain.validate(input);
+        // const { value, error } = createComplain.validate(input);
         const complaintsOnDate = await complaintDao.countComplaintsByDate(today);
         const referenceNumber = `${datePrefix}${String(complaintsOnDate + 1).padStart(4, '0')}`;
 
