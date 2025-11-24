@@ -1,9 +1,7 @@
 const complaintDao = require("../dao/complaint-dao");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
-const {
-    createComplain
-} = require('../validations/complain-validation');
+const {createComplain} = require('../Validations/complain-validation');
 
 
 exports.getComplainCategory = asyncHandler(async (req, res) => {
