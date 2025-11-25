@@ -30,8 +30,7 @@ exports.login = asyncHandler(async (req, res) => {
       id: result.id,
       role: result.role || "user",
       passwordUpdate: result.passwordUpdate,
-      iat: Math.floor(Date.now() / 1000),
-      companyId: result.companyId
+      iat: Math.floor(Date.now() / 1000)
     };
 
     // Create JWT token
