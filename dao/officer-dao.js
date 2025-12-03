@@ -1073,12 +1073,12 @@ const dateCondition = isOverdue
       )
     )
   `
-  : "DATE(fau.sheduleDate) = ?";
+  : "DATE(fau.sheduleDate) = ? AND fau.status = 'Pending'";
 
 
     const gljDateCondition = isOverdue
       ? "DATE(glj.sheduleDate) < DATE(CURDATE())  AND jao.isActive = 1 AND glj.status = 'Pending'"
-      : "DATE(glj.sheduleDate) = ?";
+      : "DATE(glj.sheduleDate) = ? glj.status = 'Pending'";
 
     console.log("FAU condition:", dateCondition);
     console.log("GLJ condition:", gljDateCondition);
