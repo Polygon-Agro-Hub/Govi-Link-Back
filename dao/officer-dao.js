@@ -176,20 +176,63 @@ exports.getOfficerVisitsCombined = async (officerId) => {
     `;
 
     // ✅ Draft cluster audits
-    const clusterSql = `
-      SELECT 
-        fau.id,
+    // const clusterSql = `
+    //   SELECT 
+    //     fau.id,
+        // fau.jobId,
+        // fau.propose AS propose,
+    //     cp.userId AS farmerId,
+    //     cp.id AS certificationpaymentId,
+    //     CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
+    //     ps.phoneNumber AS farmerMobile,
+    //     cp.clusterId,
+    //     f.id AS farmId,
+    //     SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
+    //     SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
+        // SUM(
+        //   CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
+        // ) AS totalCompleted,
+        // ROUND(
+        //   (SUM(
+        //     CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
+        //   ) / COUNT(slqi.id)) * 100, 1
+        // ) AS completionPercentage
+    //   FROM feildaudits AS fau
+    //   LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
+    //         LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
+    //   LEFT JOIN farms AS f ON f.id = fauc.farmId
+    //   LEFT JOIN farmclusterfarmers AS fcf ON fcf.farmId = f.id
+    //   LEFT JOIN users AS ps ON f.userId = ps.id
+    //   LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
+    //   LEFT JOIN slavequestionnaire AS sq ON fcf.id = sq.clusterFarmId
+    //   LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+    //   WHERE 
+    //     fau.assignOfficerId = ? 
+    //     AND fauc.isCompleted = 0
+    //     AND DATE(fau.sheduleDate) = CURDATE()
+    //     AND cp.clusterId IS NOT NULL
+    //   GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
+      // HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100 AND fau.status = 'Pending')
+    //   ORDER BY completionPercentage ASC;
+    // `;
+const clusterSql = `
+SELECT 
+    fau.id,
         fau.jobId,
         fau.propose AS propose,
-        cp.userId AS farmerId,
-        cp.id AS certificationpaymentId,
-        CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
-        ps.phoneNumber AS farmerMobile,
-        cp.clusterId,
-        f.id AS farmId,
+    cp.clusterId,
+    fauc.id AS feildAuditClusterId,
+    f.id AS farmId,
+    cp.userId AS farmerId,
+    cp.clusterId,
+    cp.id AS certificationpaymentId,
+    CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
+     ps.phoneNumber AS farmerMobile,
+    MIN(fcf.id) AS farmclusterfarmId,
+    MIN(sq.id) AS slavequsanoryid,
         SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-        SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-        SUM(
+SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
+      SUM(
           CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
         ) AS totalCompleted,
         ROUND(
@@ -197,25 +240,28 @@ exports.getOfficerVisitsCombined = async (officerId) => {
             CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
           ) / COUNT(slqi.id)) * 100, 1
         ) AS completionPercentage
-      FROM feildaudits AS fau
-      LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
-      LEFT JOIN farms AS f ON f.id = fauc.farmId
-      LEFT JOIN farmclusterfarmers AS fcf ON fcf.farmId = f.id
-      LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
-      LEFT JOIN users AS ps ON f.userId = ps.id
-      LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
-      LEFT JOIN slavequestionnaire AS sq ON fcf.id = sq.clusterFarmId
-      LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-      WHERE 
-        fau.assignOfficerId = ? 
-        AND fauc.isCompleted = 0
-        AND DATE(fau.sheduleDate) = CURDATE()
-        AND cp.clusterId IS NOT NULL
-      GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
-      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100 AND fau.status = 'Pending')
-      ORDER BY completionPercentage ASC;
-    `;
+FROM feildaudits AS fau
+LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
+LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
+LEFT JOIN farms AS f ON f.id = fauc.farmId
+LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
+LEFT JOIN users AS ps ON f.userId = ps.id
+LEFT JOIN farmclusterfarmers AS fcf ON  f.id = fcf.farmId 
+LEFT JOIN slavequestionnaire AS sq 
+       ON sq.crtPaymentId= cp.id 
+      AND sq.clusterFarmId = fcf.id
+LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+WHERE 
+    fau.assignOfficerId = ? 
+    AND DATE(fau.sheduleDate) = CURDATE()
+    AND cp.clusterId IS NOT NULL
+    AND fau.status = 'Pending'
+GROUP BY fau.id, cp.clusterId, fauc.id
+      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100)
 
+ ORDER BY completionPercentage ASC;
+
+    `;
     // ✅ Draft govilink jobs
     const requestSql = `
       SELECT 
@@ -1078,7 +1124,7 @@ const dateCondition = isOverdue
 
     const gljDateCondition = isOverdue
       ? "DATE(glj.sheduleDate) < DATE(CURDATE())  AND jao.isActive = 1 AND glj.status = 'Pending'"
-      :"DATE(glj.sheduleDate) = ? AND (glj.status = 'Pending' OR glj.status = 'Completed')";
+      :"DATE(glj.sheduleDate) = ? AND jao.isActive = 1 AND (glj.status = 'Pending' OR glj.status = 'Completed')";
 
     console.log("FAU condition:", dateCondition);
     console.log("GLJ condition:", gljDateCondition);
@@ -1159,32 +1205,61 @@ END AS completionPercentage
       UNION ALL
 
       SELECT * FROM (
-        SELECT 
-          glj.jobId, glj.id, "Requested" AS propose, os.englishName, os.sinhalaName, os.tamilName,
-          glj.status,
-          "govilinkjobs" AS auditType,
-          CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
-          NULL AS longitude, NULL AS latitude,
-          f.district, f.plotNo, f.street, f.city, f.id AS farmId,
-          NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
-          glj.sheduleDate,
-          NULL AS completedClusterCount,
-          NULL AS totalClusterCount,
-          NULL AS completionPercentage
-        FROM jobassignofficer AS jao
-        LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
-        LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
-        LEFT JOIN officerservices AS os ON glj.serviceId = os.id
-        LEFT JOIN farms AS f ON glj.farmId = f.id
-        WHERE jao.officerId = ?
-          AND ${gljDateCondition} 
-          AND glj.sheduleDate IS NOT NULL
-      ) AS glj_combined
+    SELECT 
+        glj.jobId, glj.id, "Requested" AS propose, os.englishName, os.sinhalaName, os.tamilName,
+        glj.status,
+        "govilinkjobs" AS auditType,
+        CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
+        NULL AS longitude, NULL AS latitude,
+        f.district, f.plotNo, f.street, f.city, f.id AS farmId,
+        NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
+        glj.sheduleDate,
+        NULL AS completedClusterCount,
+        NULL AS totalClusterCount,
+        NULL AS completionPercentage
+    FROM (
+        SELECT MAX(id) AS id, jobId, officerId
+        FROM jobassignofficer
+        GROUP BY jobId, officerId
+    ) AS jao_last
+    LEFT JOIN jobassignofficer AS jao ON jao.id = jao_last.id
+    LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
+    LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
+    LEFT JOIN officerservices AS os ON glj.serviceId = os.id
+    LEFT JOIN farms AS f ON glj.farmId = f.id
+    WHERE jao_last.officerId = ?
+      AND ${gljDateCondition} 
+      AND glj.sheduleDate IS NOT NULL
+) AS glj_combined
+ORDER BY sheduleDate DESC;
 
-      ORDER BY sheduleDate DESC
     `;
 
     // Correct parameters depending on overdue or date selection
+      // ((SELECT * FROM (
+      //   SELECT 
+      //     glj.jobId, glj.id, "Requested" AS propose, os.englishName, os.sinhalaName, os.tamilName,
+      //     glj.status,
+      //     "govilinkjobs" AS auditType,
+      //     CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
+      //     NULL AS longitude, NULL AS latitude,
+      //     f.district, f.plotNo, f.street, f.city, f.id AS farmId,
+      //     NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
+      //     glj.sheduleDate,
+      //     NULL AS completedClusterCount,
+      //     NULL AS totalClusterCount,
+      //     NULL AS completionPercentage
+      //   FROM jobassignofficer AS jao
+      //   LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
+      //   LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
+      //   LEFT JOIN officerservices AS os ON glj.serviceId = os.id
+      //   LEFT JOIN farms AS f ON glj.farmId = f.id
+      //   WHERE jao.officerId = ?
+      //     AND ${gljDateCondition} 
+      //     AND glj.sheduleDate IS NOT NULL
+      // ) AS glj_combined
+
+      // ORDER BY sheduleDate DESC))
     let params;
 
     if (isOverdue) {
