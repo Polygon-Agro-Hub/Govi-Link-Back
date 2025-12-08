@@ -713,7 +713,7 @@ exports.getindividualauditsquestions = async (certificationpaymentId, farmId,clu
         slqi.*,
         c.logo,
         c.srtName,
-        c.createdAt,
+        cp.createdAt,
         sq.id AS slavequestionnaireId,
         c.id AS certificateId
       FROM slavequestionnaireitems AS slqi
