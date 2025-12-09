@@ -20,6 +20,7 @@ exports.getVisits = asyncHandler(async (req, res) => {
         draftVisits,
       },
     });
+    console.log("draft", draftVisits)
   } catch (error) {
     console.error("❌ Error fetching visits:", error.message);
     res.status(500).json({
@@ -71,6 +72,7 @@ exports.getOfficerVisitsDraft = asyncHandler(async (req, res) => {
       message: "Officer draft visit data retrieved successfully",
       data: draftVisits
     });
+    console.log("officer draft", draftVisits)
   } catch (error) {
     console.error("❌ Error fetching officer visits draft:", error.message);
     res.status(500).json({

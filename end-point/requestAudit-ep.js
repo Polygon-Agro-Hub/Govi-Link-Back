@@ -158,6 +158,7 @@ exports.getidentifyProblemsSolutionsById = asyncHandler(async (req, res) => {
 exports.updateidentifyProblem = asyncHandler(async (req, res) => {
   const { id } = req.params;
   const payload = req.body;
+  console.log("hit update")
 
   try {
     const { id: updatedId } = await requestAuditDao.updateidentifyProblem(id, payload);
