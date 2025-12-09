@@ -207,7 +207,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
             )
           )
         `
-      : `DATE(fau.sheduleDate) = ? 
+      : `DATE(fau.sheduleDate) = ? AND fau.status = 'Pending'
                   AND (
             cp.clusterId IS NULL OR (
               (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId=fau.id AND fauc.isCompleted=1)
@@ -219,7 +219,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
 
     const gljDateCondition = isOverdue
       ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND glj.status = 'Pending'"
-      : "DATE(glj.sheduleDate) = ?";
+      : "DATE(glj.sheduleDate) = ? AND glj.status = 'Pending' AND jao.isActive = 1";
     console.log("FAU condition:", dateCondition);
     console.log("GLJ condition:", gljDateCondition);
 
