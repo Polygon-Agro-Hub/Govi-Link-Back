@@ -5,10 +5,14 @@ const jwt = require("jsonwebtoken");
 exports.getVisitsbydate = asyncHandler(async (req, res) => {
   const officerId = req.user.id;
   const { date } = req.params;
-  const {isOverdueSelected} = req.query;
+  const { isOverdueSelected } = req.query;
   console.log("Officer ID:", officerId, "Date:", date);
   try {
-    const visitsByDate = await assignJobsdao.getVisitsbydate(officerId, date, isOverdueSelected);
+    const visitsByDate = await assignJobsdao.getVisitsbydate(
+      officerId,
+      date,
+      isOverdueSelected
+    );
     res.status(200).json({
       status: "success",
       data: visitsByDate,
@@ -24,14 +28,18 @@ exports.getVisitsbydate = asyncHandler(async (req, res) => {
 
 // Get assign officer list
 exports.getassignofficerlist = asyncHandler(async (req, res) => {
-  const officerId = req.user.id; 
+  const officerId = req.user.id;
   const { jobId, date } = req.params;
-  const currentDate = new Date(date); 
-  
+  const currentDate = new Date(date);
+
   console.log("Officer ID:", officerId, "Job ID:", jobId, "Date:", currentDate);
-  
+
   try {
-    const irmUsers = await assignJobsdao.getassignofficerlistDAO(officerId, currentDate, jobId);
+    const irmUsers = await assignJobsdao.getassignofficerlistDAO(
+      officerId,
+      currentDate,
+      jobId
+    );
     res.status(200).json({
       status: "success",
       data: irmUsers,
@@ -47,34 +55,59 @@ exports.getassignofficerlist = asyncHandler(async (req, res) => {
 
 // Assign officer to field audits
 exports.assignOfficerToFieldAudits = asyncHandler(async (req, res) => {
-  const { officerId, jobIds, date, propose, fieldAuditId } = req.body;
-  const assignedBy = req.user.id; 
+  const { officerId, date, propose, fieldAuditIds, govilinkJobIds, auditType } =
+    req.body;
+  const assignedBy = req.user.id;
 
-  console.log("Assigning officer request:", { 
-    officerId, 
-    jobIds, 
-    date, 
+  console.log("Assigning officer request:", {
+    officerId,
+    date,
     assignedBy,
     propose,
-    fieldAuditId 
+    fieldAuditIds,
+    govilinkJobIds,
+    auditType,
   });
 
   try {
-    // Validate required fields
-    if (!officerId || !jobIds || !date) {
+    // Validate required fields based on auditType
+    if (!officerId || !date || !propose) {
       return res.status(400).json({
         success: false,
-        message: "Missing required fields: officerId, jobIds, and date are required"
+        message:
+          "Missing required fields: officerId, date, and propose are required",
+      });
+    }
+
+    // Validate that we have the correct IDs based on auditType
+    if (
+      auditType === "feildaudits" &&
+      (!fieldAuditIds || fieldAuditIds.length === 0)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing fieldAuditIds for feildaudits type",
+      });
+    }
+
+    if (
+      auditType === "govilinkjobs" &&
+      (!govilinkJobIds || govilinkJobIds.length === 0)
+    ) {
+      return res.status(400).json({
+        success: false,
+        message: "Missing govilinkJobIds for govilinkjobs type",
       });
     }
 
     const result = await assignJobsdao.assignOfficerToFieldAuditsDAO(
-      officerId, 
-      jobIds, 
-      date, 
+      officerId,
+      date,
       assignedBy,
-      propose,    
-      fieldAuditId   
+      propose,
+      fieldAuditIds || [],
+      govilinkJobIds || [],
+      auditType
     );
 
     res.status(200).json({

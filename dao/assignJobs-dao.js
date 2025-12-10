@@ -459,12 +459,12 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
 
         const params = [
           selectedDateString,
-          selectedDateString, 
-          selectedDateString, 
-          selectedDateString, 
-          selectedDateString, 
-          selectedDateString, 
-          targetIrmId, 
+          selectedDateString,
+          selectedDateString,
+          selectedDateString,
+          selectedDateString,
+          selectedDateString,
+          targetIrmId,
         ];
 
         console.log("Counting assignments for date:", selectedDateString);
@@ -528,17 +528,18 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
 // Assign field officer to field audits
 exports.assignOfficerToFieldAuditsDAO = async (
   officerId,
-  jobIds,
   date,
   assignedBy,
   propose,
-  fieldAuditId
+  fieldAuditIds = [],
+  govilinkJobIds = [],
+  auditType
 ) => {
   return new Promise((resolve, reject) => {
     let connection;
 
     const currentTimestamp = new Date();
-    const jobIdArray = Array.isArray(jobIds) ? jobIds : [jobIds];
+    const formattedDate = new Date(date);
 
     db.plantcare.getConnection((err, conn) => {
       if (err) {
@@ -575,161 +576,261 @@ exports.assignOfficerToFieldAuditsDAO = async (
               return rollback(connection, "Officer not found or not approved");
             }
 
-            // Step 2: Determine which table to update based on propose
-            if (propose === "Cluster" || propose === "Individual") {
-              // Update feildaudits table
+            // Step 2: Determine which update function to call based on auditType
+            if (auditType === "feildaudits") {
+              // Update feildaudits table using fieldAuditIds
               updateFieldAudits(
                 connection,
                 officerId,
-                jobIdArray,
-                currentTimestamp
+                fieldAuditIds,
+                currentTimestamp,
+                formattedDate,
+                assignedBy,
+                propose
               );
-            } else if (propose === "Requested" || !propose) {
-              // Update jobassignofficer table
-              updateJobAssignOfficer(
+            } else if (auditType === "govilinkjobs") {
+              // Update jobassignofficer table using govilinkJobIds
+              updateGovilinkJobs(
                 connection,
                 officerId,
-                jobIdArray,
-                currentTimestamp
+                govilinkJobIds,
+                currentTimestamp,
+                formattedDate,
+                propose
               );
             } else {
-              return rollback(connection, "Invalid propose value: " + propose);
+              return rollback(connection, "Invalid auditType: " + auditType);
             }
           }
         );
       });
     });
 
-    // Function to update feildaudits table
-    function updateFieldAudits(conn, assignOfficerId, jobIds, assignDate) {
-      console.log(
-        "Updating feildaudits for jobIds:",
-        jobIds,
-        "with propose:",
-        propose
-      );
+    // Function to update feildaudits table (for feildaudits type)
+    function updateFieldAudits(
+      conn,
+      assignOfficerId,
+      fieldAuditIds,
+      assignDate,
+      scheduleDate,
+      assignBy,
+      proposeType
+    ) {
 
-      const updateFieldAuditsSql = `
-        UPDATE feildaudits 
-        SET 
-          assignOfficerId = ?,
-          assignDate = ?,
-          assignBy = NULL
-        WHERE jobId IN (?)
+      // First, check if these field audits exist and are not already assigned
+      const checkFieldAuditsSql = `
+        SELECT id, jobId, assignOfficerId, status 
+        FROM feildaudits 
+        WHERE id IN (?)
       `;
 
-      conn.query(
-        updateFieldAuditsSql,
-        [assignOfficerId, assignDate, jobIds],
-        (err, updateResults) => {
-          if (err) {
-            return rollback(
-              conn,
-              "Database error updating field audits: " + err.message
-            );
-          }
-
-          // Get final results from feildaudits
-          const getFinalResultsSql = `
-            SELECT 
-              id,
-              jobId,
-              assignOfficerId,
-              status,
-              propose,
-              sheduleDate,
-              assignDate,
-              assignBy,
-              paymentId
-            FROM feildaudits 
-            WHERE jobId IN (?)
-          `;
-
-          conn.query(getFinalResultsSql, [jobIds], (err, finalResults) => {
-            if (err) {
-              return rollback(
-                conn,
-                "Database error fetching final results: " + err.message
-              );
-            }
-
-            commitTransaction(
-              conn,
-              finalResults,
-              updateResults.affectedRows,
-              "feildaudits"
-            );
-          });
-        }
-      );
-    }
-
-    // Function to update jobassignofficer table
-    function updateJobAssignOfficer(conn, officerId, jobIds, currentTimestamp) {
-      console.log("Updating jobassignofficer for jobIds:", jobIds);
-
-      // First, get the govilinkjobs IDs for these jobIds (string values)
-      const getGovilinkJobIdsSql = `
-        SELECT id, jobId 
-        FROM govilinkjobs 
-        WHERE jobId IN (?)
-      `;
-
-      console.log("Searching for govilink jobs with jobIds:", jobIds);
-
-      conn.query(getGovilinkJobIdsSql, [jobIds], (err, govilinkResults) => {
+      conn.query(checkFieldAuditsSql, [fieldAuditIds], (err, auditResults) => {
         if (err) {
           return rollback(
             conn,
-            "Database error getting govilink job IDs: " + err.message
+            "Database error checking field audits: " + err.message
           );
         }
 
-        console.log("Found govilink jobs:", govilinkResults);
+        if (auditResults.length === 0) {
+          return rollback(conn, "No field audits found with the given IDs");
+        }
 
-        if (govilinkResults.length === 0) {
+        // Check if any are already assigned
+        const alreadyAssigned = auditResults.filter(
+          (audit) =>
+            audit.assignOfficerId && audit.assignOfficerId !== assignOfficerId
+        );
+        if (alreadyAssigned.length > 0) {
           return rollback(
             conn,
-            "No govilink jobs found for the given job IDs: " + jobIds.join(", ")
+            `Some field audits are already assigned to other officers: ${alreadyAssigned
+              .map((a) => `ID: ${a.id}, Job: ${a.jobId}`)
+              .join(", ")}`
           );
         }
 
-        const govilinkJobIds = govilinkResults.map((job) => job.id);
-        console.log("Found govilink job IDs:", govilinkJobIds);
-
-        // Check which job IDs already exist in jobassignofficer table
-        const checkExistingAssignmentsSql = `
-          SELECT jobId, officerId, isActive 
-          FROM jobassignofficer 
-          WHERE jobId IN (?) AND isActive = 1
+        // Update feildaudits table
+        const updateFieldAuditsSql = `
+          UPDATE feildaudits 
+          SET 
+            assignOfficerId = ?,
+            assignDate = ?,
+            assignBy = ?,
+            sheduleDate = ?,
+            propose = ?,
+            status = 'Pending'
+          WHERE id IN (?)
         `;
 
         conn.query(
-          checkExistingAssignmentsSql,
-          [govilinkJobIds],
-          (err, existingAssignments) => {
+          updateFieldAuditsSql,
+          [
+            assignOfficerId,
+            assignDate,
+            assignBy,
+            scheduleDate,
+            proposeType,
+            fieldAuditIds,
+          ],
+          (err, updateResults) => {
             if (err) {
               return rollback(
                 conn,
-                "Database error checking existing assignments: " + err.message
+                "Database error updating field audits: " + err.message
               );
             }
 
-            console.log("Existing assignments found:", existingAssignments);
+            // Get final results from feildaudits
+            const getFinalResultsSql = `
+              SELECT 
+                fa.id as fieldAuditId,
+                fa.jobId,
+                fa.assignOfficerId,
+                fa.status,
+                fa.propose,
+                fa.sheduleDate,
+                fa.assignDate,
+                fa.assignBy,
+                fa.paymentId,
+                cp.certificateId,
+                cp.clusterId,
+                u.id as farmerId,
+                u.phoneNumber as farmerMobile,
+                CONCAT(u.firstName, ' ', u.lastName) as farmerName,
+                f.city,
+                f.district,
+                f.plotNo,
+                f.street
+              FROM feildaudits fa
+              LEFT JOIN certificationpayment cp ON fa.paymentId = cp.id
+              LEFT JOIN users u ON cp.userId = u.id
+              LEFT JOIN farms f ON (
+                CASE 
+                  WHEN cp.payType = 'Crop' THEN (
+                    SELECT farmId FROM certificationpaymentcrop cpc 
+                    LEFT JOIN ongoingcultivationscrops ocs ON cpc.cropId = ocs.id 
+                    WHERE cpc.paymentId = cp.id
+                  )
+                  WHEN cp.payType = 'Farm' THEN (
+                    SELECT farmId FROM certificationpaymentfarm WHERE paymentId = cp.id
+                  )
+                END
+              ) = f.id
+              WHERE fa.id IN (?)
+            `;
 
-            const existingJobIds = existingAssignments.map(
-              (assignment) => assignment.jobId
+            conn.query(
+              getFinalResultsSql,
+              [fieldAuditIds],
+              (err, finalResults) => {
+                if (err) {
+                  return rollback(
+                    conn,
+                    "Database error fetching final results: " + err.message
+                  );
+                }
+
+                commitTransaction(
+                  conn,
+                  finalResults,
+                  updateResults.affectedRows,
+                  "feildaudits",
+                  proposeType
+                );
+              }
             );
-            const newJobIds = govilinkJobIds.filter(
-              (jobId) => !existingJobIds.includes(jobId)
+          }
+        );
+      });
+    }
+
+    // Function to update govilinkjobs (for govilinkjobs type)
+    function updateGovilinkJobs(
+      conn,
+      officerId,
+      govilinkJobIds,
+      currentTimestamp,
+      scheduleDate,
+      proposeType
+    ) {
+
+      // First, check if these govilink jobs exist
+      const checkGovilinkJobsSql = `
+        SELECT gj.id, gj.jobId, gj.status, gj.sheduleDate
+        FROM govilinkjobs gj
+        WHERE gj.id IN (?)
+      `;
+
+      conn.query(checkGovilinkJobsSql, [govilinkJobIds], (err, jobResults) => {
+        if (err) {
+          return rollback(
+            conn,
+            "Database error checking govilink jobs: " + err.message
+          );
+        }
+
+        if (jobResults.length === 0) {
+          return rollback(conn, "No govilink jobs found with the given IDs");
+        }
+
+        // Step 1: Update or insert into jobassignofficer table
+        updateJobAssignOfficerTable(
+          conn,
+          officerId,
+          govilinkJobIds,
+          currentTimestamp,
+          jobResults,
+          scheduleDate,
+          proposeType
+        );
+      });
+    }
+
+    // Function to update jobassignofficer table - FIXED
+    function updateJobAssignOfficerTable(
+      conn,
+      officerId,
+      govilinkJobIds,
+      currentTimestamp,
+      jobResults,
+      scheduleDate,
+      proposeType
+    ) {
+      // Check which job IDs already exist in jobassignofficer table
+      const checkExistingAssignmentsSql = `
+        SELECT jobId, officerId, isActive 
+        FROM jobassignofficer 
+        WHERE jobId IN (?) AND isActive = 1
+      `;
+
+      conn.query(
+        checkExistingAssignmentsSql,
+        [govilinkJobIds],
+        (err, existingAssignments) => {
+          if (err) {
+            return rollback(
+              conn,
+              "Database error checking existing assignments: " + err.message
             );
+          }
 
-            let totalAffectedRows = 0;
-            const allPromises = [];
+          console.log("Existing assignments found:", existingAssignments);
 
-            // Update existing assignments
-            if (existingJobIds.length > 0) {
-              const updateExistingSql = `
+          const existingJobIds = existingAssignments.map(
+            (assignment) => assignment.jobId
+          );
+
+          const newJobIds = govilinkJobIds.filter(
+            (jobId) => !existingJobIds.includes(jobId)
+          );
+
+          let totalAffectedRows = 0;
+          const allPromises = [];
+
+          // Update existing assignments
+          if (existingJobIds.length > 0) {
+            const updateExistingSql = `
               UPDATE jobassignofficer 
               SET 
                 officerId = ?,
@@ -738,119 +839,184 @@ exports.assignOfficerToFieldAuditsDAO = async (
               WHERE jobId IN (?)
             `;
 
-              const updatePromise = new Promise((resolve, reject) => {
-                conn.query(
-                  updateExistingSql,
-                  [officerId, currentTimestamp, existingJobIds],
-                  (err, updateResults) => {
-                    if (err) {
-                      reject(
-                        new Error(
-                          "Database error updating existing assignments: " +
-                            err.message
-                        )
-                      );
-                    } else {
-                      console.log(
-                        `Updated ${updateResults.affectedRows} existing assignments`
-                      );
-                      totalAffectedRows += updateResults.affectedRows;
-                      resolve(updateResults);
-                    }
+            const updatePromise = new Promise((resolve, reject) => {
+              conn.query(
+                updateExistingSql,
+                [officerId, currentTimestamp, existingJobIds],
+                (err, updateResults) => {
+                  if (err) {
+                    reject(
+                      new Error(
+                        "Database error updating existing assignments: " +
+                          err.message
+                      )
+                    );
+                  } else {
+                    console.log(
+                      `Updated ${updateResults.affectedRows} existing assignments in jobassignofficer`
+                    );
+                    totalAffectedRows += updateResults.affectedRows;
+                    resolve(updateResults);
                   }
-                );
-              });
-              allPromises.push(updatePromise);
-            }
+                }
+              );
+            });
+            allPromises.push(updatePromise);
+          }
 
-            // Insert new assignments
-            if (newJobIds.length > 0) {
-              const insertValues = newJobIds.map((jobId) => [
-                jobId,
-                officerId,
-                1,
-                currentTimestamp,
-              ]);
-
-              const insertJobAssignSql = `
-              INSERT INTO jobassignofficer (jobId, officerId, isActive, createdAt) 
+          // Insert new assignments
+          if (newJobIds.length > 0) {
+            const insertValues = newJobIds.map((jobId) => [
+              jobId,
+              officerId,
+              1,
+              currentTimestamp,
+            ]);
+            const insertNewSql = `
+              INSERT INTO jobassignofficer (jobId, officerId, isActive, createdAt)
               VALUES ?
             `;
 
-              const insertPromise = new Promise((resolve, reject) => {
-                conn.query(
-                  insertJobAssignSql,
-                  [insertValues],
-                  (err, insertResults) => {
-                    if (err) {
-                      reject(
-                        new Error(
-                          "Database error inserting new assignments: " +
-                            err.message
-                        )
-                      );
-                    } else {
-                      console.log(
-                        `Inserted ${insertResults.affectedRows} new job assignments`
-                      );
-                      totalAffectedRows += insertResults.affectedRows;
-                      resolve(insertResults);
-                    }
-                  }
-                );
+            const insertPromise = new Promise((resolve, reject) => {
+              conn.query(insertNewSql, [insertValues], (err, insertResults) => {
+                if (err) {
+                  reject(
+                    new Error(
+                      "Database error inserting new assignments: " + err.message
+                    )
+                  );
+                } else {
+                  console.log(
+                    `Inserted ${insertResults.affectedRows} new assignments in jobassignofficer`
+                  );
+                  totalAffectedRows += insertResults.affectedRows;
+                  resolve(insertResults);
+                }
               });
-              allPromises.push(insertPromise);
-            }
-
-            // Wait for all operations to complete
-            Promise.all(allPromises)
-              .then(() => {
-                // Get final results from jobassignofficer
-                const getFinalResultsSql = `
-                SELECT 
-                  jao.id,
-                  jao.jobId,
-                  jao.officerId,
-                  jao.isActive,
-                  jao.createdAt,
-                  gj.jobId as govilinkJobId
-                FROM jobassignofficer jao
-                LEFT JOIN govilinkjobs gj ON jao.jobId = gj.id
-                WHERE jao.officerId = ? 
-                  AND jao.jobId IN (?)
-                  AND jao.isActive = 1
-              `;
-
-                conn.query(
-                  getFinalResultsSql,
-                  [officerId, govilinkJobIds],
-                  (err, finalResults) => {
-                    if (err) {
-                      return rollback(
-                        conn,
-                        "Database error fetching final results: " + err.message
-                      );
-                    }
-
-                    commitTransaction(
-                      conn,
-                      finalResults,
-                      totalAffectedRows,
-                      "jobassignofficer"
-                    );
-                  }
-                );
-              })
-              .catch((error) => {
-                return rollback(conn, error.message);
-              });
+            });
+            allPromises.push(insertPromise);
           }
-        );
-      });
+
+          // Step 2: Update govilinkjobs table schedule date - REMOVED assignBy
+          const updateGovilinkJobsSql = `
+            UPDATE govilinkjobs 
+            SET 
+              sheduleDate = ?,
+              status = 'Assigned'
+            WHERE id IN (?)
+          `;
+
+          const updateGovilinkPromise = new Promise((resolve, reject) => {
+            conn.query(
+              updateGovilinkJobsSql,
+              [scheduleDate, govilinkJobIds],
+              (err, updateResults) => {
+                if (err) {
+                  reject(
+                    new Error(
+                      "Database error updating govilink jobs: " + err.message
+                    )
+                  );
+                } else {
+                  console.log(
+                    `Updated ${updateResults.affectedRows} govilink jobs`
+                  );
+                  totalAffectedRows += updateResults.affectedRows;
+                  resolve(updateResults);
+                }
+              }
+            );
+          });
+          allPromises.push(updateGovilinkPromise);
+
+          // Wait for all operations to complete
+          Promise.all(allPromises)
+            .then(() => {
+              // Get final combined results
+              getFinalGovilinkResults(
+                conn,
+                govilinkJobIds,
+                officerId,
+                totalAffectedRows,
+                proposeType
+              );
+            })
+            .catch((error) => {
+              return rollback(conn, error.message);
+            });
+        }
+      );
+    }
+
+    // Function to get final results for govilinkjobs
+    function getFinalGovilinkResults(
+      conn,
+      govilinkJobIds,
+      officerId,
+      totalAffectedRows,
+      proposeType
+    ) {
+      const getFinalResultsSql = `
+        SELECT 
+          gj.id as govilinkJobId,
+          gj.jobId,
+          gj.sheduleDate,
+          gj.status,
+          gj.assignBy,
+          jao.id as jobAssignmentId,
+          jao.officerId,
+          jao.isActive,
+          jao.createdAt,
+          os.englishName as serviceenglishName,
+          os.sinhalaName as servicesinhalaName,
+          os.tamilName as servicetamilName,
+          u.id as farmerId,
+          u.phoneNumber as farmerMobile,
+          CONCAT(u.firstName, ' ', u.lastName) as farmerName,
+          f.city,
+          f.district,
+          f.plotNo,
+          f.street,
+          f.id as farmId
+        FROM govilinkjobs gj
+        LEFT JOIN jobassignofficer jao ON gj.id = jao.jobId AND jao.isActive = 1
+        LEFT JOIN officerservices os ON gj.serviceId = os.id
+        LEFT JOIN users u ON gj.farmerId = u.id
+        LEFT JOIN farms f ON gj.farmId = f.id
+        WHERE gj.id IN (?)
+          AND jao.officerId = ?
+      `;
+
+      conn.query(
+        getFinalResultsSql,
+        [govilinkJobIds, officerId],
+        (err, finalResults) => {
+          if (err) {
+            return rollback(
+              conn,
+              "Database error fetching final results: " + err.message
+            );
+          }
+
+          commitTransaction(
+            conn,
+            finalResults,
+            totalAffectedRows,
+            "jobassignofficer and govilinkjobs",
+            proposeType
+          );
+        }
+      );
     }
 
     // Function to commit transaction
-    function commitTransaction(conn, finalResults, affectedRows, tableName) {
+    function commitTransaction(
+      conn,
+      finalResults,
+      affectedRows,
+      tableName,
+      proposeType
+    ) {
       conn.commit((commitErr) => {
         if (commitErr) {
           return rollback(
@@ -867,11 +1033,13 @@ exports.assignOfficerToFieldAuditsDAO = async (
 
         resolve({
           success: true,
-          message: `Successfully assigned officer to ${affectedRows} jobs in ${tableName}`,
+          message: `Successfully assigned officer to ${affectedRows} ${proposeType} jobs`,
           totalProcessed: finalResults.length,
           affectedRows: affectedRows,
           updatedRecords: finalResults,
-          tableUpdated: tableName,
+          tablesUpdated: tableName,
+          proposeType: proposeType,
+          auditType: auditType,
         });
       });
     }
