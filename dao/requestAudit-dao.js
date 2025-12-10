@@ -53,7 +53,7 @@ exports.updateProblem = async ({ id, farmerFeedback, advice, image }) => {
     const sql = `
       UPDATE govijoblinksuggestions
       SET farmerFeedback = ?, advice = ?, image = ?
-      WHERE jobId = ?
+      WHERE id = ?
     `;
     db.plantcare.query(sql, [farmerFeedback, advice, image, id], (err, result) => {
       if (err) return reject(err);
@@ -154,7 +154,8 @@ exports.setcomplete = async (id) => {
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE govilinkjobs
-      SET status = 'Completed'
+      SET status = 'Completed',
+       doneDate = NOW()
       WHERE id = ?
     `;
 
