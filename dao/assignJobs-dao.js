@@ -868,7 +868,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
             });
             allPromises.push(insertReassignedPromise);
           }
-          // Step 4: Update govilinkjobs table schedule date and status
+          // Step 3: Update govilinkjobs table schedule date and status
           const updateGovilinkJobsSql = `
             UPDATE govilinkjobs 
             SET 
