@@ -316,7 +316,7 @@ WHERE
     AND cp.clusterId IS NOT NULL
     AND fau.status = 'Pending'
 GROUP BY fau.id, cp.clusterId, fauc.id
-      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100)
+      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60)
 
  ORDER BY completionPercentage ASC;
 
