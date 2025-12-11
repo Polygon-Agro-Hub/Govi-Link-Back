@@ -864,48 +864,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
             allPromises.push(insertReassignedPromise);
           }
 
-          // Step 3: Insert new assignments for jobs never assigned before
-          if (newJobIds.length > 0) {
-            const insertNewValues = newJobIds.map((jobId) => [
-              jobId,
-              officerId,
-              1,
-              currentTimestamp,
-            ]);
-
-            console.log("Inserting new values:", insertNewValues);
-
-            const insertNewSql = `
-              INSERT INTO jobassignofficer (jobId, officerId, isActive, createdAt)
-              VALUES ?
-            `;
-
-            const insertNewPromise = new Promise((resolve, reject) => {
-              conn.query(
-                insertNewSql,
-                [insertNewValues],
-                (err, insertResults) => {
-                  if (err) {
-                    reject(
-                      new Error(
-                        "Database error inserting new assignments: " +
-                          err.message
-                      )
-                    );
-                  } else {
-                    console.log(
-                      `Inserted ${insertResults.affectedRows} new assignments in jobassignofficer`
-                    );
-                    totalAffectedRows += insertResults.affectedRows;
-                    resolve(insertResults);
-                  }
-                }
-              );
-            });
-            allPromises.push(insertNewPromise);
-          }
-
-          // Step 4: Update govilinkjobs table schedule date and status
+          // Step 3: Update govilinkjobs table schedule date and status
           const updateGovilinkJobsSql = `
             UPDATE govilinkjobs 
             SET 
