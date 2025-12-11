@@ -584,7 +584,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 officerId,
                 fieldAuditIds,
                 formattedDate,
-                propose
+                propose,
+                assignedBy
               );
             } else if (auditType === "govilinkjobs") {
               // Update jobassignofficer table using govilinkJobIds
@@ -594,7 +595,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 govilinkJobIds,
                 currentTimestamp,
                 formattedDate,
-                propose
+                propose,
+                assignedBy
               );
             } else {
               return rollback(connection, "Invalid auditType: " + auditType);
@@ -610,7 +612,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
       assignOfficerId,
       fieldAuditIds,
       scheduleDate,
-      proposeType
+      proposeType,
+      assignedBy
     ) {
       // First, check if these field audits exist
       const checkFieldAuditsSql = `
@@ -655,7 +658,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
           UPDATE feildaudits 
           SET 
             assignOfficerId = ?,
-            sheduleDate = ?
+            sheduleDate = ?,
+            assignByCFO = ?
           WHERE id IN (?)
         `;
 
@@ -667,7 +671,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
 
         conn.query(
           updateFieldAuditsSql,
-          [assignOfficerId, scheduleDate, fieldAuditIds],
+          [assignOfficerId, scheduleDate, assignedBy, fieldAuditIds],
           (err, updateResults) => {
             if (err) {
               return rollback(
@@ -732,7 +736,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
           currentTimestamp,
           jobResults,
           scheduleDate,
-          proposeType
+          proposeType,
+          assignedBy
         );
       });
     }
@@ -863,66 +868,25 @@ exports.assignOfficerToFieldAuditsDAO = async (
             });
             allPromises.push(insertReassignedPromise);
           }
-
-          // Step 3: Insert new assignments for jobs never assigned before
-          if (newJobIds.length > 0) {
-            const insertNewValues = newJobIds.map((jobId) => [
-              jobId,
-              officerId,
-              1,
-              currentTimestamp,
-            ]);
-
-            console.log("Inserting new values:", insertNewValues);
-
-            const insertNewSql = `
-              INSERT INTO jobassignofficer (jobId, officerId, isActive, createdAt)
-              VALUES ?
-            `;
-
-            const insertNewPromise = new Promise((resolve, reject) => {
-              conn.query(
-                insertNewSql,
-                [insertNewValues],
-                (err, insertResults) => {
-                  if (err) {
-                    reject(
-                      new Error(
-                        "Database error inserting new assignments: " +
-                          err.message
-                      )
-                    );
-                  } else {
-                    console.log(
-                      `Inserted ${insertResults.affectedRows} new assignments in jobassignofficer`
-                    );
-                    totalAffectedRows += insertResults.affectedRows;
-                    resolve(insertResults);
-                  }
-                }
-              );
-            });
-            allPromises.push(insertNewPromise);
-          }
-
           // Step 4: Update govilinkjobs table schedule date and status
           const updateGovilinkJobsSql = `
             UPDATE govilinkjobs 
             SET 
               sheduleDate = ?,
-              status = 'Assigned'
+              assignByCFO = ?
             WHERE id IN (?)
           `;
 
           console.log("Updating govilink jobs with:", {
             scheduleDate,
-            govilinkJobIds,
+            assignedBy,
+            govilinkJobIds
           });
 
           const updateGovilinkPromise = new Promise((resolve, reject) => {
             conn.query(
               updateGovilinkJobsSql,
-              [scheduleDate, govilinkJobIds],
+              [scheduleDate,assignedBy, govilinkJobIds],
               (err, updateResults) => {
                 if (err) {
                   reject(
