@@ -1696,15 +1696,21 @@ exports.checkEmailExists = async (email) => {
 
 // Check existing phone number
 exports.checkPhoneExists = async (phoneCode, phoneNumber) => {
+  console.log("hit", phoneCode,phoneNumber)
     return new Promise((resolve, reject) => {
-        const sql = `SELECT id FROM feildofficer WHERE phoneCode1 = ? AND phoneNumber1 = ?`;
-        
-        db.plantcare.query(sql, [phoneCode, phoneNumber], (err, results) => {
+        // const sql = `SELECT id FROM feildofficer WHERE phoneCode1 = ? AND phoneNumber1 = ?`;
+                const sql = `
+            SELECT id 
+            FROM feildofficer 
+            WHERE (phoneCode1 = ? AND phoneNumber1 = ?)
+               OR (phoneCode2 = ? AND phoneNumber2 = ?)
+        `;
+        db.plantcare.query(sql, [phoneCode, phoneNumber, phoneCode, phoneNumber], (err, results) => {
             if (err) {
                 console.error("Database error:", err.message);
                 return reject(new Error("Database error"));
             }
-
+console.log(results)
             resolve(results.length > 0);
         });
     });

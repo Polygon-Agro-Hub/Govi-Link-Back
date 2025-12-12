@@ -413,31 +413,30 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
             fo.empId,
             fo.irmId,
             fo.status,
-            -- Count from feildaudits table (assignDate matches selected date and status is Pending)
             COUNT(DISTINCT 
-              CASE WHEN DATE(fau.assignDate) = ? AND fau.status = 'Pending' THEN fau.id ELSE NULL END
+              CASE WHEN DATE(fau.sheduleDate) = ? AND fau.status = 'Pending' THEN fau.id ELSE NULL END
             ) as feildauditsCount,
-            -- Count from jobassignofficer table (govilinkjobs sheduleDate matches selected date)
+
             COUNT(DISTINCT 
               CASE WHEN DATE(gj.sheduleDate) = ? THEN jao.id ELSE NULL END
             ) as jobassignofficerCount,
-            -- Total count (sum of both)
+
             (
               COUNT(DISTINCT 
-                CASE WHEN DATE(fau.assignDate) = ? AND fau.status = 'Pending' THEN fau.id ELSE NULL END
+                CASE WHEN DATE(fau.sheduleDate) = ? AND fau.status = 'Pending' THEN fau.id ELSE NULL END
               ) + 
               COUNT(DISTINCT 
                 CASE WHEN DATE(gj.sheduleDate) = ? THEN jao.id ELSE NULL END
               )
             ) as totalAssignedCount
           FROM feildofficer AS fo
-          -- Left join with feildaudits table for certification audit jobs
+
           LEFT JOIN feildaudits AS fau ON fo.id = fau.assignOfficerId 
-            AND DATE(fau.assignDate) = ?
-            AND fau.assignDate IS NOT NULL
+            AND DATE(fau.sheduleDate) = ?
+            AND fau.sheduleDate IS NOT NULL
             AND fau.status = 'Pending'
-          -- Left join with jobassignofficer and govilinkjobs for service request jobs
-          LEFT JOIN jobassignofficer AS jao ON fo.id = jao.officerId 
+
+            LEFT JOIN jobassignofficer AS jao ON fo.id = jao.officerId 
             AND jao.isActive = 1
           LEFT JOIN govilinkjobs AS gj ON jao.jobId = gj.id 
             AND DATE(gj.sheduleDate) = ?
@@ -659,7 +658,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
           SET 
             assignOfficerId = ?,
             sheduleDate = ?,
-            assignByCFO = ?
+            assignByCFO = ?,
+            assignDate = NOW()
           WHERE id IN (?)
         `;
 
@@ -873,7 +873,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
             UPDATE govilinkjobs 
             SET 
               sheduleDate = ?,
-              assignByCFO = ?
+              assignByCFO = ?,
+              assignDate = NOW()
             WHERE id IN (?)
           `;
 

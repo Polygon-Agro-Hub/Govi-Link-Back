@@ -121,3 +121,38 @@ exports.changePassword = async (officerId, currentPassword, newPassword) => {
     });
   });
 };
+
+
+exports.getCFODistricts = async (officerId) =>{
+  console.log("userID", officerId)
+return new Promise((resolve, reject) => {
+  let sql = `
+  SELECT assignDistrict
+  FROM feildofficer
+  WHERE id = ?
+  `
+
+db.plantcare.query(sql, [officerId], (err, results) => {
+  if (err) {
+    console.error("Database error:", err.message);
+    return reject(new Error("Database error"));
+  }
+
+  if (results.length === 0) {
+    return reject(new Error("Officer not found"));
+  }
+
+  const row = results[0];
+
+  // Convert district string → array
+  const districtArray = row.assignDistrict
+    ? row.assignDistrict.split(",").map(item => item.trim())
+    : [];
+
+  resolve(districtArray);
+  console.log(districtArray)
+});
+
+  }
+)
+}
