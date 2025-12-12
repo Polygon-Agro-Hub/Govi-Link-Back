@@ -295,7 +295,6 @@ SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <>
       ) / COUNT(slqi.id)) * 30, 1
     )
     +
-    -- Extra 30% for job suggestion
     (CASE WHEN COUNT(js.id) > 0 THEN 30 ELSE 0 END)
     AS completionPercentage
 FROM feildaudits AS fau
@@ -314,7 +313,8 @@ WHERE
     fau.assignOfficerId = ? 
     AND DATE(fau.sheduleDate) = CURDATE()
     AND cp.clusterId IS NOT NULL
-    AND fau.status = 'Pending'
+    AND fau.status = 'Pending' 
+    AND fauc.isCompleted = 0
 GROUP BY fau.id, cp.clusterId, fauc.id
       HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60)
 
@@ -878,7 +878,8 @@ exports.setCheckQuestions = async (id) => {
       // Step 2: Update with toggled value
       const updateSql = `
         UPDATE slavequestionnaireitems
-        SET officerTickResult = ?
+        SET officerTickResult = ?,
+        doneDate = NOW()
         WHERE id = ?
       `;
 
@@ -1139,8 +1140,9 @@ exports.setcomplete = async (id, payload) => {
 
           const { total, completed } = rows[0];
           console.log(`🔍 Cluster audit ${id}: ${completed}/${total} farms completed`);
-
-          if (total === completed) {
+         const totalNum = Number(total);
+const completedNum = Number(completed);
+          if (totalNum === completedNum) {
             // All farms completed → mark feildaudit as completed
             const sqlUpdateAudit = `
               UPDATE feildaudits SET status = 'Completed', completeDate = NOW() WHERE id = ?
