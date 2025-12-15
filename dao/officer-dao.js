@@ -934,7 +934,8 @@ exports.setCheckPhotoProof = async (id, uploadImage) => {
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE slavequestionnaireitems
-      SET officerUploadImage = ?
+      SET officerUploadImage = ?,
+      doneDate = NOW()
       WHERE id = ?
     `;
 
