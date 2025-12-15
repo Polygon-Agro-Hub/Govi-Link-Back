@@ -24,6 +24,13 @@ exports.login = asyncHandler(async (req, res) => {
     const result = await userDao.loginUser(empId, password);
     console.log("User login successful:", result);
 
+        if (result.status !== "Approved") {
+      return res.status(403).json({
+        success: false,
+        message: "User not approved",
+        status: result.status,
+      });
+    }
  // Define JWT payload
     const payload = {
       empId: result.empId,
@@ -152,3 +159,30 @@ exports.changePassword = asyncHandler(async (req, res) => {
     });
   }
 });
+
+exports.getCFODistricts = asyncHandler(async(req,res)=>{
+  console.log('get officer distritcs')
+  const officerId = req.user.id;
+      if (!officerId) {
+      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
+    }
+  try{
+    const officerdistricts = await userDao.getCFODistricts(officerId);
+
+        res.status(200).json({
+      status: "success",
+      data: officerdistricts,
+    });
+  } catch (error) {
+    console.error("Error fetching officer details:", error.message);
+
+    if (error.message === "Officer not found") {
+      return res.status(404).json({ status: "error", message: "Officer not found" });
+    }
+
+    res.status(500).json({
+      status: "error",
+      message: "An error occurred while fetching officer details",
+    });
+  }
+})
