@@ -24,6 +24,13 @@ exports.login = asyncHandler(async (req, res) => {
     const result = await userDao.loginUser(empId, password);
     console.log("User login successful:", result);
 
+        if (result.status !== "Approved") {
+      return res.status(403).json({
+        success: false,
+        message: "User not approved",
+        status: result.status,
+      });
+    }
  // Define JWT payload
     const payload = {
       empId: result.empId,
