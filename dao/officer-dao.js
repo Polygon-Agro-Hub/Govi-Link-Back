@@ -879,7 +879,7 @@ exports.setCheckQuestions = async (id) => {
       const updateSql = `
         UPDATE slavequestionnaireitems
         SET officerTickResult = ?,
-        doneDate = NOW()
+        officerDoneTime = NOW()
         WHERE id = ?
       `;
 
@@ -935,7 +935,7 @@ exports.setCheckPhotoProof = async (id, uploadImage) => {
     const sql = `
       UPDATE slavequestionnaireitems
       SET officerUploadImage = ?,
-      doneDate = NOW()
+      officerDoneTime = NOW()
       WHERE id = ?
     `;
 

@@ -414,19 +414,19 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
             fo.irmId,
             fo.status,
             COUNT(DISTINCT 
-              CASE WHEN DATE(fau.sheduleDate) = ? AND fau.status = 'Pending' THEN fau.id ELSE NULL END
+              CASE WHEN DATE(fau.sheduleDate) = ? AND (fau.status = 'Pending' OR fau.status = 'Completed') THEN fau.id ELSE NULL END
             ) as feildauditsCount,
 
             COUNT(DISTINCT 
-              CASE WHEN DATE(gj.sheduleDate) = ? THEN jao.id ELSE NULL END
+              CASE WHEN DATE(gj.sheduleDate) = ? AND (gj.status = 'Pending' OR gj.status = 'Completed') THEN jao.id ELSE NULL END
             ) as jobassignofficerCount,
 
             (
               COUNT(DISTINCT 
-                CASE WHEN DATE(fau.sheduleDate) = ? AND fau.status = 'Pending' THEN fau.id ELSE NULL END
+                CASE WHEN DATE(fau.sheduleDate) = ? AND (fau.status = 'Pending' OR fau.status = 'Completed') THEN fau.id ELSE NULL END
               ) + 
               COUNT(DISTINCT 
-                CASE WHEN DATE(gj.sheduleDate) = ? THEN jao.id ELSE NULL END
+                CASE WHEN DATE(gj.sheduleDate) = ? AND (gj.status = 'Pending' OR gj.status = 'Completed') THEN jao.id ELSE NULL END
               )
             ) as totalAssignedCount
           FROM feildofficer AS fo
@@ -434,7 +434,6 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
           LEFT JOIN feildaudits AS fau ON fo.id = fau.assignOfficerId 
             AND DATE(fau.sheduleDate) = ?
             AND fau.sheduleDate IS NOT NULL
-            AND fau.status = 'Pending'
 
             LEFT JOIN jobassignofficer AS jao ON fo.id = jao.officerId 
             AND jao.isActive = 1
