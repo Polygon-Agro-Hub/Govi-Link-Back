@@ -138,9 +138,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       ) AS combinedResults
       ORDER BY combinedResults.sheduleDate DESC
     `;
-
-    // ✅ Draft individual audits
-    const draftSql = `
+       const draftSql = `
       SELECT 
         fau.id,
         fau.jobId,
@@ -155,15 +153,27 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         SUM(
           CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
         ) AS totalCompleted,
-        ROUND(
-          (SUM(
-            CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-          ) / COUNT(slqi.id)) * 100, 1
-        ) AS completionPercentage
+      CASE 
+      WHEN COUNT(js.id) > 0 THEN 1 
+      ELSE 0 
+    END AS hasJobSuggestion,
+
+    ROUND(
+      (SUM(
+        CASE WHEN slqi.officerTickResult = 1 
+          OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') 
+        THEN 1 ELSE 0 END
+      ) / COUNT(slqi.id)) * 30
+    , 1) 
+    +
+    (CASE WHEN COUNT(js.id) > 0 THEN 30 ELSE 0 END) 
+    AS completionPercentage
+
       FROM feildaudits AS fau
       LEFT JOIN certificationpayment AS cp ON cp.id = fau.paymentId
       LEFT JOIN slavequestionnaire AS sq ON sq.crtPaymentId = cp.id
       LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+      LEFT JOIN jobsuggestions AS js ON sq.id = js.slaveId
       LEFT JOIN users AS gcu ON cp.userId = gcu.id
       WHERE 
         fau.assignOfficerId = ? 
@@ -171,50 +181,10 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         AND DATE(fau.sheduleDate) = CURDATE()
         AND cp.clusterId IS NULL
       GROUP BY fau.id, fau.jobId, cp.userId, fau.status
-      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100 AND fau.status = 'Pending')
+      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60 AND fau.status = 'Pending')
       ORDER BY completionPercentage ASC;
     `;
 
-    // ✅ Draft cluster audits
-    // const clusterSql = `
-    //   SELECT 
-    //     fau.id,
-        // fau.jobId,
-        // fau.propose AS propose,
-    //     cp.userId AS farmerId,
-    //     cp.id AS certificationpaymentId,
-    //     CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
-    //     ps.phoneNumber AS farmerMobile,
-    //     cp.clusterId,
-    //     f.id AS farmId,
-    //     SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-    //     SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-        // SUM(
-        //   CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-        // ) AS totalCompleted,
-        // ROUND(
-        //   (SUM(
-        //     CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-        //   ) / COUNT(slqi.id)) * 100, 1
-        // ) AS completionPercentage
-    //   FROM feildaudits AS fau
-    //   LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
-    //         LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
-    //   LEFT JOIN farms AS f ON f.id = fauc.farmId
-    //   LEFT JOIN farmclusterfarmers AS fcf ON fcf.farmId = f.id
-    //   LEFT JOIN users AS ps ON f.userId = ps.id
-    //   LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
-    //   LEFT JOIN slavequestionnaire AS sq ON fcf.id = sq.clusterFarmId
-    //   LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-    //   WHERE 
-    //     fau.assignOfficerId = ? 
-    //     AND fauc.isCompleted = 0
-    //     AND DATE(fau.sheduleDate) = CURDATE()
-    //     AND cp.clusterId IS NOT NULL
-    //   GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
-      // HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100 AND fau.status = 'Pending')
-    //   ORDER BY completionPercentage ASC;
-    // `;
 const clusterSql = `
 SELECT 
     fau.id,
@@ -235,11 +205,16 @@ SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <>
       SUM(
           CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
         ) AS totalCompleted,
-        ROUND(
-          (SUM(
-            CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-          ) / COUNT(slqi.id)) * 100, 1
-        ) AS completionPercentage
+ ROUND(
+      (SUM(
+        CASE WHEN slqi.officerTickResult = 1 
+          OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') 
+        THEN 1 ELSE 0 END
+      ) / COUNT(slqi.id)) * 30, 1
+    )
+    +
+    (CASE WHEN COUNT(js.id) > 0 THEN 30 ELSE 0 END)
+    AS completionPercentage
 FROM feildaudits AS fau
 LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
 LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
@@ -251,18 +226,20 @@ LEFT JOIN slavequestionnaire AS sq
        ON sq.crtPaymentId= cp.id 
       AND sq.clusterFarmId = fcf.id
 LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+LEFT JOIN jobsuggestions AS js ON js.slaveId = sq.id
 WHERE 
     fau.assignOfficerId = ? 
     AND DATE(fau.sheduleDate) = CURDATE()
     AND cp.clusterId IS NOT NULL
-    AND fau.status = 'Pending'
+    AND fau.status = 'Pending' 
+    AND fauc.isCompleted = 0
 GROUP BY fau.id, cp.clusterId, fauc.id
-      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 100)
+      HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60)
 
  ORDER BY completionPercentage ASC;
 
     `;
-    // ✅ Draft govilink jobs
+   
     const requestSql = `
       SELECT 
         glj.jobId AS jobId,
@@ -275,11 +252,10 @@ GROUP BY fau.id, cp.clusterId, fauc.id
         CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
         ps2.phoneNumber AS farmerMobile,
         glj.sheduleDate AS sheduleDate,
-        CASE
-          WHEN gjs.id IS NOT NULL AND gjp.id IS NOT NULL THEN 100
-          WHEN gjs.id IS NOT NULL AND gjp.id IS NULL THEN 50
-          ELSE 0
-        END AS completionPercentage
+            (
+      CASE WHEN gjs.id IS NOT NULL THEN 30 ELSE 0 END +
+      CASE WHEN gjp.id IS NOT NULL THEN 30 ELSE 0 END
+    ) AS completionPercentage
       FROM jobassignofficer AS jao
       LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
       LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
@@ -291,7 +267,7 @@ GROUP BY fau.id, cp.clusterId, fauc.id
         AND DATE(glj.sheduleDate) = CURDATE()
         AND jao.isActive = 1
         AND glj.status = 'Pending'
-      HAVING completionPercentage > 0 AND completionPercentage <= 100
+      HAVING completionPercentage > 0 AND completionPercentage <= 60
     `;
 
     // ✅ Execute all queries in parallel
@@ -602,108 +578,6 @@ db.plantcare.query(individualSql, [officerId], (err1, individualResults) => {
   });
 };
 
-// exports.getofficerVisitsDraft = async (officerId) => {
-//   console.log("Officer ID for draft percentage:", officerId);
-
-//   return new Promise((resolve, reject) => {
-//     const individualSql = `
-//       SELECT 
-//       fau.id,
-//         fau.jobId,
-//         fau.propose AS propose,
-//         cp.userId AS farmerId,
-//         cp.id AS certificationpaymentId,
-//         CONCAT( gcu.firstName, ' ',  gcu.lastName) AS farmerName,
-//         gcu.phoneNumber AS farmerMobile,
-//         COUNT(slqi.id) AS totalTasks,
-//         SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-//         SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-//         SUM(
-//           CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-//         ) AS totalCompleted,
-//         ROUND(
-//           (SUM(
-//             CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-//           ) / COUNT(slqi.id)) * 100, 1
-//         ) AS completionPercentage
-//       FROM feildaudits AS fau
-//       LEFT JOIN certificationpayment AS cp ON cp.id = fau.paymentId
-//       LEFT JOIN slavequestionnaire AS sq ON sq.crtPaymentId = cp.id
-//       LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-//       LEFT JOIN users AS gcu ON cp.userId = gcu.id
-//       WHERE 
-//         fau.assignOfficerId = ? 
-//         AND fau.status = 'Pending'
-//         AND DATE(fau.sheduleDate) = CURDATE()
-//         AND cp.clusterId IS NULL
-//       GROUP BY fau.id, fau.jobId, cp.userId,  fau.status
-//       HAVING completionPercentage < 100 AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
-//       ORDER BY completionPercentage ASC;
-//     `;
-
-//     const clusterSql = `
-//   SELECT 
-//   fau.id,
-//     fau.jobId,
-//     fau.propose AS propose,
-//     cp.userId AS farmerId,
-//     cp.id AS certificationpaymentId,
-//     CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
-//     ps.phoneNumber AS farmerMobile,
-//     cp.clusterId ,
-//     f.id AS farmId,
-//     SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-//     SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-//     SUM(
-//       CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-//     ) AS totalCompleted,
-//     ROUND(
-//       (SUM(
-//         CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-//       ) / COUNT(slqi.id)) * 100, 1
-//     ) AS completionPercentage
-//   FROM feildaudits AS fau
-//   LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
-//   LEFT JOIN farms AS f ON f.id = fauc.farmId
-//   LEFT JOIN farmclusterfarmers AS fcf ON fcf.farmId = f.id
-//   LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
-//   LEFT JOIN users AS ps ON f.userId = ps.id
-//   LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
-//   LEFT JOIN slavequestionnaire AS sq ON fcf.id = sq.clusterFarmId
-//   LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-//   WHERE 
-//     fau.assignOfficerId = ? 
-//     AND fauc.isCompleted = 0
-//     AND DATE(fau.sheduleDate) = CURDATE()
-//     AND cp.clusterId IS NOT NULL
-//   GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
-//   HAVING completionPercentage < 100  AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
-//   ORDER BY completionPercentage ASC;
-// `;
-
-
-//     // Execute both queries
-//     db.plantcare.query(individualSql, [officerId], (err1, individualResults) => {
-//       if (err1) {
-//         console.error("❌ Database error (individual jobs):", err1.message);
-//         return reject(err1);
-//       }
-
-//       db.plantcare.query(clusterSql, [officerId], (err2, clusterResults) => {
-//         if (err2) {
-//           console.error("❌ Database error (cluster jobs):", err2.message);
-//           return reject(err2);
-//         }
-
-//         // Merge results
-//         const results = [...individualResults, ...clusterResults];
-//         console.log("✅ Draft Jobs Found:",results );
-//         resolve(results);
-//       });
-//     });
-//   });
-// };
-
 exports.getindividualauditsquestions = async (certificationpaymentId, farmId,clusterId) => { 
   console.log("certification payment ID:", certificationpaymentId, "clusterId:", clusterId, "farmId:", farmId);
 
@@ -790,7 +664,8 @@ exports.setCheckQuestions = async (id) => {
       // Step 2: Update with toggled value
       const updateSql = `
         UPDATE slavequestionnaireitems
-        SET officerTickResult = ?
+        SET officerTickResult = ?,
+        officerDoneTime = NOW()
         WHERE id = ?
       `;
 
@@ -845,7 +720,8 @@ exports.setCheckPhotoProof = async (id, uploadImage) => {
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE slavequestionnaireitems
-      SET officerUploadImage = ?
+      SET officerUploadImage = ?,
+      officerDoneTime = NOW()
       WHERE id = ?
     `;
 
@@ -1051,8 +927,9 @@ exports.setcomplete = async (id, payload) => {
 
           const { total, completed } = rows[0];
           console.log(`🔍 Cluster audit ${id}: ${completed}/${total} farms completed`);
-
-          if (total === completed) {
+         const totalNum = Number(total);
+const completedNum = Number(completed);
+          if (totalNum === completedNum) {
             // All farms completed → mark feildaudit as completed
             const sqlUpdateAudit = `
               UPDATE feildaudits SET status = 'Completed', completeDate = NOW() WHERE id = ?
@@ -1234,32 +1111,6 @@ END AS completionPercentage
 ORDER BY sheduleDate DESC;
 
     `;
-
-    // Correct parameters depending on overdue or date selection
-      // ((SELECT * FROM (
-      //   SELECT 
-      //     glj.jobId, glj.id, "Requested" AS propose, os.englishName, os.sinhalaName, os.tamilName,
-      //     glj.status,
-      //     "govilinkjobs" AS auditType,
-      //     CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
-      //     NULL AS longitude, NULL AS latitude,
-      //     f.district, f.plotNo, f.street, f.city, f.id AS farmId,
-      //     NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
-      //     glj.sheduleDate,
-      //     NULL AS completedClusterCount,
-      //     NULL AS totalClusterCount,
-      //     NULL AS completionPercentage
-      //   FROM jobassignofficer AS jao
-      //   LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
-      //   LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
-      //   LEFT JOIN officerservices AS os ON glj.serviceId = os.id
-      //   LEFT JOIN farms AS f ON glj.farmId = f.id
-      //   WHERE jao.officerId = ?
-      //     AND ${gljDateCondition} 
-      //     AND glj.sheduleDate IS NOT NULL
-      // ) AS glj_combined
-
-      // ORDER BY sheduleDate DESC))
     let params;
 
     if (isOverdue) {
@@ -1606,15 +1457,21 @@ exports.checkEmailExists = async (email) => {
 
 // Check existing phone number
 exports.checkPhoneExists = async (phoneCode, phoneNumber) => {
+  console.log("hit", phoneCode,phoneNumber)
     return new Promise((resolve, reject) => {
-        const sql = `SELECT id FROM feildofficer WHERE phoneCode1 = ? AND phoneNumber1 = ?`;
-        
-        db.plantcare.query(sql, [phoneCode, phoneNumber], (err, results) => {
+        // const sql = `SELECT id FROM feildofficer WHERE phoneCode1 = ? AND phoneNumber1 = ?`;
+                const sql = `
+            SELECT id 
+            FROM feildofficer 
+            WHERE (phoneCode1 = ? AND phoneNumber1 = ?)
+               OR (phoneCode2 = ? AND phoneNumber2 = ?)
+        `;
+        db.plantcare.query(sql, [phoneCode, phoneNumber, phoneCode, phoneNumber], (err, results) => {
             if (err) {
                 console.error("Database error:", err.message);
                 return reject(new Error("Database error"));
             }
-
+console.log(results)
             resolve(results.length > 0);
         });
     });
