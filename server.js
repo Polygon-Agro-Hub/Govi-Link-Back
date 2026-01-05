@@ -2,7 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const bodyParser = require('body-parser');
 require('dotenv').config();
-const { plantcare, collectionofficer, marketPlace, admin } = require("./startup/database");
+const { plantcare, collectionofficer, marketPlace, admin, investments } = require("./startup/database");
 
 const app = express();
 
@@ -54,6 +54,7 @@ DatabaseConnection(plantcare, "PlantCare");
 DatabaseConnection(collectionofficer, "CollectionOfficer");
 DatabaseConnection(marketPlace, "MarketPlace");
 DatabaseConnection(admin, "Admin");
+DatabaseConnection(investments, "Investments")
 
 
 const userroute = require('./routes/user.routes.js');
@@ -62,6 +63,7 @@ const clusterauditroutes = require('./routes/clusteaudit.routes.js')
 const requestauditroutes = require('./routes/requestaudit.routes.js')
 const complaintroutes = require('./routes/complaint.routes.js')
 const assignjobsroutes = require('./routes/assignjobs.routes.js')
+const capitalRequest = require('./routes/capitalrequest.routes.js')
 
 app.use(`${BASE_PATH}/api/auth`,userroute);
 app.use(`${BASE_PATH}/api/officer`,officerroutes)
@@ -69,6 +71,8 @@ app.use(`${BASE_PATH}/api/cluster-audit`, clusterauditroutes)
 app.use(`${BASE_PATH}/api/request-audit`, requestauditroutes)
 app.use(`${BASE_PATH}/api/complaint`, complaintroutes)
 app.use(`${BASE_PATH}/api/assign-jobs`, assignjobsroutes)
+app.use(`${BASE_PATH}/api/capital-request`, capitalRequest)
+
 
 app.use((err, req, res, next) => {
     console.error(err.stack);

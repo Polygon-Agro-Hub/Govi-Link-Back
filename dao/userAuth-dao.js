@@ -4,19 +4,26 @@ const bcrypt = require('bcrypt');
 exports.loginUser = async (empId, password) => {
   try {
     const sql = `
-      SELECT empId, password, id, JobRole AS role,status, passwordUpdated AS passwordUpdate 
+      SELECT empId, password, id, JobRole AS role, status, passwordUpdated AS passwordUpdate
       FROM feildofficer
-      WHERE empId = ? AND status = "Approved"
+      WHERE empId = ?
     `;
     const [results] = await db.plantcare.promise().query(sql, [empId]);
 
     if (results.length === 0) {
+      // EMP ID does not exist
       throw new Error('User not found');
     }
 
     const user = results[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password);
 
+    if (user.status !== "Approved") {
+      // EMP ID exists but not approved
+      throw new Error('User not approved');
+    }
+
+    // Check password
+    const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new Error('Invalid password');
     }
@@ -30,7 +37,8 @@ exports.loginUser = async (empId, password) => {
       status: user.status,
     };
   } catch (err) {
-    throw new Error('Database error:' + err.message);
+    // Pass proper message to the frontend
+    throw new Error(err.message);
   }
 };
 
@@ -121,3 +129,38 @@ exports.changePassword = async (officerId, currentPassword, newPassword) => {
     });
   });
 };
+
+
+exports.getCFODistricts = async (officerId) =>{
+  console.log("userID", officerId)
+return new Promise((resolve, reject) => {
+  let sql = `
+  SELECT assignDistrict
+  FROM feildofficer
+  WHERE id = ?
+  `
+
+db.plantcare.query(sql, [officerId], (err, results) => {
+  if (err) {
+    console.error("Database error:", err.message);
+    return reject(new Error("Database error"));
+  }
+
+  if (results.length === 0) {
+    return reject(new Error("Officer not found"));
+  }
+
+  const row = results[0];
+
+  // Convert district string → array
+  const districtArray = row.assignDistrict
+    ? row.assignDistrict.split(",").map(item => item.trim())
+    : [];
+
+  resolve(districtArray);
+  console.log(districtArray)
+});
+
+  }
+)
+}
