@@ -13,8 +13,8 @@ exports.getRequests = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       status: "success",
-        requests
-      
+      requests
+
     });
   } catch (error) {
     console.error("❌ Error fetching visits:", error.message);
@@ -35,8 +35,8 @@ exports.getRequestByid = asyncHandler(async (req, res) => {
 
     res.status(200).json({
       status: "success",
-        requests
-      
+      requests
+
     });
   } catch (error) {
     console.error("❌ Error fetching visits:", error.message);
@@ -50,57 +50,56 @@ exports.getRequestByid = asyncHandler(async (req, res) => {
 
 exports.saveInspectionData = async (req, res) => {
   const { reqId, tableName } = req.body;
-  
+
   console.log(`📥 Received save request for ${tableName}:`, { reqId });
   console.log(`📦 Request body:`, req.body);
   console.log(`📁 Request files:`, req.files ? Object.keys(req.files) : 'No files');
 
   // Validate required fields
   if (!reqId || !tableName) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: 'Invalid payload. Required: reqId, tableName' 
+      message: 'Invalid payload. Required: reqId, tableName'
     });
   }
 
   // ✅ Use the imported validation function
   if (!capitalRequesDao.isValidTable(tableName)) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: `Invalid table name: ${tableName}` 
+      message: `Invalid table name: ${tableName}`
     });
   }
 
   try {
     const uploadFileToS3 = require('../Middlewares/s3upload');
     const deleteFromR2 = require('../Middlewares/s3delete');
-    
+
     // Check if record exists
     const exists = await capitalRequesDao.checkRecordExists(tableName, reqId);
     console.log(`🔍 Record ${exists ? 'EXISTS' : 'DOES NOT EXIST'} for reqId: ${reqId}`);
-    
+
     // Prepare data object
     let dataToSave = { reqId };
-    
+
     // ✅ Check if this table supports file uploads
     const fileConfig = capitalRequesDao.FILE_UPLOAD_TABLES[tableName];
-    
+
     if (fileConfig) {
       // ========== HANDLE FILE UPLOADS ==========
       console.log(`📁 Processing file uploads for ${tableName}`);
-      
-      // Get existing data if updating
+
       let existingData = null;
       if (exists) {
         existingData = await capitalRequesDao.getInspectionData(tableName, reqId);
       }
-      
+
       // Process each file field
       for (const fieldName of fileConfig.fields) {
         // ✅ Check if this is an array field (multiple images)
-        if (fileConfig.isArray && fieldName === 'images') {
+        if (fileConfig.isArray) {
           const uploadedUrls = [];
-          
+
           // Upload new images
           if (req.files && req.files[fieldName]) {
             console.log(`📤 Uploading ${req.files[fieldName].length} new images`);
@@ -110,33 +109,33 @@ exports.saveInspectionData = async (req, res) => {
               console.log(`✅ Uploaded image: ${fileUrl}`);
             }
           }
-          
+
           // Check for existing image URLs from body
           const existingUrls = [];
           for (let i = 0; i < 20; i++) {  // Check up to 20 existing images
-            const urlKey = `imageUrl_${i}`;
+            const urlKey = `${fieldName}Url_${i}`;
             if (req.body[urlKey]) {
               existingUrls.push(req.body[urlKey]);
               console.log(`🔗 Keeping existing image URL: ${req.body[urlKey]}`);
             }
           }
-          
+
           // Combine existing and new URLs
           const allUrls = [...existingUrls, ...uploadedUrls];
-          
-          console.log(`📊 Total images: ${allUrls.length}`);
-          
+
+          console.log(`📊 Total ${fieldName}: ${allUrls.length}`);
+
           // Store as JSON array
           dataToSave[fieldName] = JSON.stringify(allUrls);
-          
+
         } else {
           // ========== Single file handling (for frontImg/backImg) ==========
           const urlFieldName = `${fieldName}Url`;
-          
+
           // Check if new file uploaded
           if (req.files && req.files[fieldName] && req.files[fieldName][0]) {
             console.log(`📤 Uploading new ${fieldName}`);
-            
+
             // Delete old file if exists
             if (existingData && existingData[fieldName]) {
               try {
@@ -146,14 +145,14 @@ exports.saveInspectionData = async (req, res) => {
                 console.error(`Failed to delete old ${fieldName}:`, err);
               }
             }
-            
+
             // Upload new file
             const fileBuffer = req.files[fieldName][0].buffer;
             const fileName = req.files[fieldName][0].originalname;
             const fileUrl = await uploadFileToS3(fileBuffer, fileName, fileConfig.folder);
             dataToSave[fieldName] = fileUrl;
             console.log(`✅ Uploaded new ${fieldName}: ${fileUrl}`);
-          } 
+          }
           // Check if URL provided (already uploaded)
           else if (req.body[urlFieldName]) {
             dataToSave[fieldName] = req.body[urlFieldName];
@@ -166,17 +165,17 @@ exports.saveInspectionData = async (req, res) => {
           }
         }
       }
-      
+
       // Add other non-file fields from body
       for (const [key, value] of Object.entries(req.body)) {
-        if (key !== 'reqId' && key !== 'tableName' && !key.startsWith('imageUrl_')) {
+        if (key !== 'reqId' && key !== 'tableName' && !key.includes('Url_')) {
           dataToSave[key] = value;
         }
       }
     } else {
       // ========== HANDLE REGULAR DATA (e.g., inspectionpersonal, inspectionfinance) ==========
       console.log(`📝 Processing regular data for ${tableName}`);
-      
+
       // Copy all fields from body except reqId and tableName
       for (const [key, value] of Object.entries(req.body)) {
         if (key !== 'reqId' && key !== 'tableName') {
@@ -184,9 +183,9 @@ exports.saveInspectionData = async (req, res) => {
         }
       }
     }
-    
+
     console.log(`💾 Data to save:`, dataToSave);
-    
+
     // Perform INSERT or UPDATE
     let result;
     if (exists) {
@@ -209,10 +208,10 @@ exports.saveInspectionData = async (req, res) => {
     });
   } catch (error) {
     console.error(`❌ Error saving to ${tableName}:`, error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Database error',
-      error: error.message 
+      error: error.message
     });
   }
 };
@@ -220,26 +219,26 @@ exports.saveInspectionData = async (req, res) => {
 
 exports.getInspectionData = async (req, res) => {
   const { reqId, tableName } = req.query;
-  
+
   console.log(`🔍 Fetching ${tableName} for reqId: ${reqId}`);
 
   if (!reqId || !tableName) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: 'Invalid request. Required: reqId, tableName' 
+      message: 'Invalid request. Required: reqId, tableName'
     });
   }
 
   if (!capitalRequesDao.isValidTable(tableName)) {
-    return res.status(400).json({ 
+    return res.status(400).json({
       success: false,
-      message: `Invalid table name: ${tableName}` 
+      message: `Invalid table name: ${tableName}`
     });
   }
 
   try {
     const data = await capitalRequesDao.getInspectionData(tableName, reqId);
-    
+
     if (!data) {
       return res.status(404).json({
         success: false,
@@ -253,10 +252,10 @@ exports.getInspectionData = async (req, res) => {
     });
   } catch (error) {
     console.error(`❌ Error fetching ${tableName}:`, error);
-    res.status(500).json({ 
+    res.status(500).json({
       success: false,
       message: 'Database error',
-      error: error.message 
+      error: error.message
     });
   }
 };

@@ -67,12 +67,12 @@ const VALID_TABLES = [
   'inspectionlabour',
   'inspectionland',
   'inspectioncrop',
-  'inspectionwater',
-  'inspectionsoil',
+  'inspectioncropping',
+  'inspectionprofit',
   'inspectionidproof',
-  'inspectionpest',
-  'inspectionharvest',
-  'inspectionmarketing',
+  'inspectioneconomical',
+  'inspectioncultivation',
+  'inspectioninvestment',
   'inspectionfinance'
 ];
 
@@ -87,7 +87,12 @@ const FILE_UPLOAD_TABLES = {
   'inspectionland': {
     fields: ['images'],
     folder: 'inspection/land',
-    isArray: true  // ✅ This is critical!
+    isArray: true 
+  },
+    'inspectioncultivation': {
+    fields: ['waterImage'],
+    folder: 'inspection/water',
+    isArray: true  
   }
 };
 
