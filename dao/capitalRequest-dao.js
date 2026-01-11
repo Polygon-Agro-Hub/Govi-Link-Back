@@ -66,7 +66,7 @@ const VALID_TABLES = [
   'inspectionpersonal',
   'inspectionlabour',
   'inspectionland',
-  'inspectioncrop',
+  'inspectionharveststorage',
   'inspectioncropping',
   'inspectionprofit',
   'inspectionidproof',
