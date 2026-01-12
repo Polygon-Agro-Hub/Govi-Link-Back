@@ -272,6 +272,102 @@ exports.getInspectionData = async (tableName, reqId) => {
   });
 };
 
+
+exports.deleteAllInspectionData = async (reqId) => {
+  return new Promise((resolve, reject) => {
+    // Get connection from pool
+    db.investments.getConnection((err, connection) => {
+      if (err) {
+        console.error('❌ Error getting connection:', err);
+        return reject(err);
+      }
+
+      // Start transaction
+      connection.beginTransaction((transErr) => {
+        if (transErr) {
+          console.error('❌ Error starting transaction:', transErr);
+          connection.release();
+          return reject(transErr);
+        }
+
+        console.log('🔄 Transaction started for reqId:', reqId);
+
+        let deletedTables = [];
+        let totalDeleted = 0;
+
+        // Function to delete from a single table
+        const deleteFromTable = (tableName) => {
+          return new Promise((resolveDelete, rejectDelete) => {
+            const query = `DELETE FROM \`${tableName}\` WHERE ${TABLE_FOREIGN_KEY} = ?`;
+
+            connection.query(query, [reqId], (error, results) => {
+              if (error) {
+                console.error(`❌ Error deleting from ${tableName}:`, error);
+                rejectDelete(error);
+              } else {
+                if (results.affectedRows > 0) {
+                  console.log(`✅ Deleted ${results.affectedRows} row(s) from ${tableName}`);
+                  deletedTables.push(tableName);
+                  totalDeleted += results.affectedRows;
+                } else {
+                  console.log(`ℹ️ No rows found in ${tableName} for reqId: ${reqId}`);
+                }
+                resolveDelete();
+              }
+            });
+          });
+        };
+
+        // Delete from all tables sequentially
+        const deleteSequentially = async () => {
+          try {
+            for (const tableName of VALID_TABLES) {
+              await deleteFromTable(tableName);
+            }
+
+            // All deletions successful - commit transaction
+            connection.commit((commitErr) => {
+              if (commitErr) {
+                console.error('❌ Error committing transaction:', commitErr);
+                return connection.rollback(() => {
+                  connection.release();
+                  reject(commitErr);
+                });
+              }
+
+              console.log('✅ Transaction committed successfully');
+              console.log(`📊 Total deleted: ${totalDeleted} rows from ${deletedTables.length} tables`);
+              
+              connection.release();
+
+              resolve({
+                success: true,
+                deletedTables,
+                totalDeleted
+              });
+            });
+          } catch (deleteError) {
+            console.error('❌ Error during deletion:', deleteError);
+            
+            // Rollback transaction on error
+            connection.rollback(() => {
+              console.log('🔄 Transaction rolled back');
+              connection.release();
+              reject({
+                success: false,
+                error: deleteError.message
+              });
+            });
+          }
+        };
+
+        // Start the deletion process
+        deleteSequentially();
+      });
+    });
+  });
+};
+
 exports.isValidTable = isValidTable;
 exports.VALID_TABLES = VALID_TABLES;
 exports.FILE_UPLOAD_TABLES = FILE_UPLOAD_TABLES;
