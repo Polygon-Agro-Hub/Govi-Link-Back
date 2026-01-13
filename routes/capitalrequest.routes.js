@@ -15,5 +15,6 @@ router.post('/inspection/save', upload.fields([
     { name: 'waterImage', maxCount: 1 } 
   ]), capitaRequestEp.saveInspectionData);
 router.get('/inspection/get', capitaRequestEp.getInspectionData);
+router.delete('/inspection/delete/:reqId', capitaRequestEp.deleteInspectionData);
 
 module.exports = router;
