@@ -12,7 +12,7 @@ router.post('/inspection/save', upload.fields([
     { name: 'frontImg', maxCount: 1 },
     { name: 'backImg', maxCount: 1 },
     { name: 'images', maxCount: 10 },
-    { name: 'waterImage', maxCount: 1 } 
+    { name: 'waterImage', maxCount: 5 } 
   ]), capitaRequestEp.saveInspectionData);
 router.get('/inspection/get', capitaRequestEp.getInspectionData);
 router.delete('/inspection/delete/:reqId', capitaRequestEp.deleteInspectionData);
