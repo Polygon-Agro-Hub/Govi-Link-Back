@@ -259,3 +259,42 @@ exports.getInspectionData = async (req, res) => {
     });
   }
 };
+
+exports.deleteInspectionData = async (req, res) => {
+  const { reqId } = req.params;
+
+  console.log(`🗑️ Received delete request for reqId: ${reqId}`);
+
+  if (!reqId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Invalid request. Required: reqId'
+    });
+  }
+
+  try {
+    const result = await capitalRequesDao.deleteAllInspectionData(reqId);
+
+    if (result.success) {
+      res.status(200).json({
+        success: true,
+        message: 'All inspection data deleted successfully',
+        deletedTables: result.deletedTables,
+        totalDeleted: result.totalDeleted
+      });
+    } else {
+      res.status(500).json({
+        success: false,
+        message: 'Failed to delete inspection data',
+        error: result.error
+      });
+    }
+  } catch (error) {
+    console.error(`❌ Error deleting inspection data:`, error);
+    res.status(500).json({
+      success: false,
+      message: 'Database error',
+      error: error.message
+    });
+  }
+};

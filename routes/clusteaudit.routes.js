@@ -5,6 +5,8 @@ const cluterAuditEp = require('../end-point/cluterAudit-ep');
 const upload = require('../Middlewares/multer.middleware');
 
 
-router.get('/cluster-visits/:id',auth, cluterAuditEp.getclusterVisits)
+router.get('/cluster-visits/:id', auth, cluterAuditEp.getclusterVisits);
+
+router.post('/status/onGoing/:id', auth, cluterAuditEp.UpdateStatus);
 
 module.exports = router;
