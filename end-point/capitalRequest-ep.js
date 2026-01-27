@@ -298,3 +298,37 @@ exports.deleteInspectionData = async (req, res) => {
     });
   }
 };
+
+
+exports.confirmAndLeaveRequest = asyncHandler(async (req, res) => {
+  const { reqId } = req.params;
+
+  console.log(`📝 Confirming and leaving request ID: ${reqId}`);
+
+  if (!reqId) {
+    return res.status(400).json({
+      success: false,
+      message: 'Request ID is required'
+    });
+  }
+
+  try {
+    const result = await capitalRequesDao.updateAuditedDate(reqId);
+
+    res.status(200).json({
+      success: true,
+      message: 'Request confirmed and audited date updated successfully',
+      data: {
+        reqId: result.reqId,
+        auditedDate: new Date().toISOString()
+      }
+    });
+  } catch (error) {
+    console.error(`❌ Error confirming request:`, error);
+    res.status(500).json({
+      success: false,
+      message: error.message || 'Failed to confirm request',
+      error: error.message
+    });
+  }
+});

@@ -16,5 +16,6 @@ router.post('/inspection/save', upload.fields([
   ]), capitaRequestEp.saveInspectionData);
 router.get('/inspection/get', capitaRequestEp.getInspectionData);
 router.delete('/inspection/delete/:reqId', capitaRequestEp.deleteInspectionData);
+router.patch('/confirm-leave/:reqId', capitaRequestEp.confirmAndLeaveRequest);
 
 module.exports = router;
