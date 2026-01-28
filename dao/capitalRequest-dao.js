@@ -368,6 +368,36 @@ exports.deleteAllInspectionData = async (reqId) => {
   });
 };
 
+
+exports.updateAuditedDate = (reqId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE investmentrequest 
+      SET auditedDate = NOW() 
+      WHERE id = ?
+    `;
+
+    db.investments.query(query, [reqId], (error, results) => {
+      if (error) {
+        console.error('❌ Error updating auditedDate:', error);
+        return reject(error);
+      }
+
+      if (results.affectedRows === 0) {
+        return reject(new Error('No request found with the given ID'));
+      }
+
+      console.log(`✅ Updated auditedDate for request ID: ${reqId}`);
+      resolve({
+        success: true,
+        reqId: reqId,
+        affectedRows: results.affectedRows
+      });
+    });
+  });
+};
+
+
 exports.isValidTable = isValidTable;
 exports.VALID_TABLES = VALID_TABLES;
 exports.FILE_UPLOAD_TABLES = FILE_UPLOAD_TABLES;
