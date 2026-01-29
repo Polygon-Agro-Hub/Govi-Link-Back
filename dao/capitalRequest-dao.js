@@ -8,12 +8,13 @@ SELECT
   ir.id,
   ir.jobId,
   ir.farmerId,
-   CONCAT(u.firstname, ' ', u.lastname) AS farmerName
+  ir.auditedDate,
+  CONCAT(u.firstname, ' ', u.lastname) AS farmerName
 FROM investmentrequest ir
 LEFT JOIN plant_care.users u
   ON u.id = ir.farmerId
 WHERE ir.officerId = ?
-
+  AND ir.auditedDate IS NULL
     `;
 
     db.investments.query(sql, [officerId], (err, results) => {
@@ -32,13 +33,14 @@ exports.getCapitalRequestById = async (id) => {
         ir.id,
         ir.jobId,
         ir.farmerId,
-            ir.extentha,
-    ir.extentp,
-    ir.extentac,
-    ir.investment,
-    ir.expectedYield,
-      DATE_FORMAT(ir.startDate, '%Y-%m-%d') AS startDate,
-
+        ir.extentha,
+        ir.extentp,
+        ir.extentac,
+        ir.investment,
+        ir.expectedYield,
+        ir.nicFront,
+        ir.nicBack,
+        DATE_FORMAT(ir.startDate, '%Y-%m-%d') AS startDate,
         CONCAT(u.firstname, ' ', u.lastname) AS farmerName,
         u.phoneNumber,
         u.district,
@@ -47,8 +49,7 @@ exports.getCapitalRequestById = async (id) => {
         cg.cropNameTamil
       FROM investmentrequest ir
       LEFT JOIN plant_care.users u ON u.id = ir.farmerId
-            LEFT JOIN plant_care.cropgroup cg ON cg.id = ir.cropId
-
+      LEFT JOIN plant_care.cropgroup cg ON cg.id = ir.cropId
       WHERE ir.id = ?
     `;
 
@@ -367,6 +368,36 @@ exports.deleteAllInspectionData = async (reqId) => {
     });
   });
 };
+
+
+exports.updateAuditedDate = (reqId) => {
+  return new Promise((resolve, reject) => {
+    const query = `
+      UPDATE investmentrequest 
+      SET auditedDate = NOW() 
+      WHERE id = ?
+    `;
+
+    db.investments.query(query, [reqId], (error, results) => {
+      if (error) {
+        console.error('❌ Error updating auditedDate:', error);
+        return reject(error);
+      }
+
+      if (results.affectedRows === 0) {
+        return reject(new Error('No request found with the given ID'));
+      }
+
+      console.log(`✅ Updated auditedDate for request ID: ${reqId}`);
+      resolve({
+        success: true,
+        reqId: reqId,
+        affectedRows: results.affectedRows
+      });
+    });
+  });
+};
+
 
 exports.isValidTable = isValidTable;
 exports.VALID_TABLES = VALID_TABLES;
