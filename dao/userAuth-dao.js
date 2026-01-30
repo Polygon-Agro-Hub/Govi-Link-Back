@@ -1,5 +1,5 @@
-const db = require('../startup/database');
-const bcrypt = require('bcrypt');
+const db = require("../startup/database");
+const bcrypt = require("bcrypt");
 
 exports.loginUser = async (empId, password) => {
   try {
@@ -12,20 +12,29 @@ exports.loginUser = async (empId, password) => {
 
     if (results.length === 0) {
       // EMP ID does not exist
-      throw new Error('User not found');
+      throw new Error("User not found");
     }
 
     const user = results[0];
 
-    if (user.status !== "Approved") {
-      // EMP ID exists but not approved
-      throw new Error('User not approved');
-    }
-
-    // Check password
+    // Check password FIRST before checking status
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
-      throw new Error('Invalid password');
+      throw new Error("Invalid password");
+    }
+
+    // Now check status with specific messages
+    if (user.status === "Rejected") {
+      throw new Error("This Employee ID is Rejected");
+    }
+
+    if (user.status === "Not Approved") {
+      throw new Error("User not approved");
+    }
+
+    if (user.status !== "Approved") {
+      // Catch any other status that's not Approved
+      throw new Error("User not approved");
     }
 
     return {
@@ -42,16 +51,16 @@ exports.loginUser = async (empId, password) => {
   }
 };
 
-exports.getprofile = async (officerId) =>{
-  console.log("userID", officerId)
-return new Promise((resolve, reject) => {
-  let sql = `
+exports.getprofile = async (officerId) => {
+  console.log("userID", officerId);
+  return new Promise((resolve, reject) => {
+    let sql = `
   SELECT empId, JobRole AS role,status, firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg
   FROM feildofficer
   WHERE id = ?
-  `
+  `;
 
-db.plantcare.query(sql, [officerId], (err, results) => {
+    db.plantcare.query(sql, [officerId], (err, results) => {
       if (err) {
         console.error("Database error:", err.message);
         return reject(new Error("Database error"));
@@ -61,23 +70,22 @@ db.plantcare.query(sql, [officerId], (err, results) => {
         return reject(new Error("Officer not found"));
       }
 
-      resolve(results[0]); 
+      resolve(results[0]);
     });
-  }
-)
-}
+  });
+};
 
-exports.getmyprofile = async (officerId) =>{
-  console.log("userID", officerId)
-return new Promise((resolve, reject) => {
-  let sql = `
+exports.getmyprofile = async (officerId) => {
+  console.log("userID", officerId);
+  return new Promise((resolve, reject) => {
+    let sql = `
   SELECT empId,firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg, phoneNumber1,phoneNumber2,nic,
   house,city,street,email
   FROM feildofficer
   WHERE id = ?
-  `
+  `;
 
-db.plantcare.query(sql, [officerId], (err, results) => {
+    db.plantcare.query(sql, [officerId], (err, results) => {
       if (err) {
         console.error("Database error:", err.message);
         return reject(new Error("Database error"));
@@ -87,11 +95,10 @@ db.plantcare.query(sql, [officerId], (err, results) => {
         return reject(new Error("Officer not found"));
       }
 
-      resolve(results[0]); 
+      resolve(results[0]);
     });
-  }
-)
-}
+  });
+};
 
 exports.changePassword = async (officerId, currentPassword, newPassword) => {
   return new Promise((resolve, reject) => {
@@ -99,7 +106,7 @@ exports.changePassword = async (officerId, currentPassword, newPassword) => {
       SELECT password
       FROM feildofficer
       WHERE id = ?
-    `;    
+    `;
     db.plantcare.query(sql, [officerId], async (err, results) => {
       if (err) {
         console.error("Database error:", err.message);
@@ -109,7 +116,10 @@ exports.changePassword = async (officerId, currentPassword, newPassword) => {
         return reject(new Error("Officer not found"));
       }
       const user = results[0];
-      const isPasswordValid = await bcrypt.compare(currentPassword, user.password);
+      const isPasswordValid = await bcrypt.compare(
+        currentPassword,
+        user.password,
+      );
       if (!isPasswordValid) {
         return reject(new Error("Current password is incorrect"));
       }
@@ -119,48 +129,49 @@ exports.changePassword = async (officerId, currentPassword, newPassword) => {
         SET password = ?, passwordUpdated = 1
         WHERE id = ?
       `;
-      db.plantcare.query(updateSql, [hashedNewPassword, officerId], (updateErr, updateResults) => {
-        if (updateErr) {
-          console.error("Database error:", updateErr.message);
-          return reject(new Error("Database error"));
-        }
-        resolve({ success: true, message: "Password changed successfully" });
-      });
+      db.plantcare.query(
+        updateSql,
+        [hashedNewPassword, officerId],
+        (updateErr, updateResults) => {
+          if (updateErr) {
+            console.error("Database error:", updateErr.message);
+            return reject(new Error("Database error"));
+          }
+          resolve({ success: true, message: "Password changed successfully" });
+        },
+      );
     });
   });
 };
 
-
-exports.getCFODistricts = async (officerId) =>{
-  console.log("userID", officerId)
-return new Promise((resolve, reject) => {
-  let sql = `
+exports.getCFODistricts = async (officerId) => {
+  console.log("userID", officerId);
+  return new Promise((resolve, reject) => {
+    let sql = `
   SELECT assignDistrict
   FROM feildofficer
   WHERE id = ?
-  `
+  `;
 
-db.plantcare.query(sql, [officerId], (err, results) => {
-  if (err) {
-    console.error("Database error:", err.message);
-    return reject(new Error("Database error"));
-  }
+    db.plantcare.query(sql, [officerId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return reject(new Error("Database error"));
+      }
 
-  if (results.length === 0) {
-    return reject(new Error("Officer not found"));
-  }
+      if (results.length === 0) {
+        return reject(new Error("Officer not found"));
+      }
 
-  const row = results[0];
+      const row = results[0];
 
-  // Convert district string → array
-  const districtArray = row.assignDistrict
-    ? row.assignDistrict.split(",").map(item => item.trim())
-    : [];
+      // Convert district string → array
+      const districtArray = row.assignDistrict
+        ? row.assignDistrict.split(",").map((item) => item.trim())
+        : [];
 
-  resolve(districtArray);
-  console.log(districtArray)
-});
-
-  }
-)
-}
+      resolve(districtArray);
+      console.log(districtArray);
+    });
+  });
+};
