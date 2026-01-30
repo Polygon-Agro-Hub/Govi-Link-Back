@@ -73,3 +73,54 @@ exports.getclusterVisits = async (feildauditId) => {
     });
   });
 };
+
+
+
+exports.UpdateStatus = async (feildauditId, jobId) => {
+  console.log("Updating status to Ongoing for ID:", feildauditId, "JobID:", jobId);
+
+  return new Promise((resolve, reject) => {
+    // Determine which table to update based on jobId prefix
+    let sql;
+    let tableName;
+
+    if (jobId && (jobId.startsWith('CA') || jobId.startsWith('FA'))) {
+      // Update feildaudits table for CA (Cluster Audit) or FA (Field Audit)
+      sql = `
+        UPDATE feildaudits 
+        SET status = 'Ongoing' 
+        WHERE id = ?
+      `;
+      tableName = 'feildaudits';
+    } else if (jobId && jobId.startsWith('SR')) {
+      // Update govilinkjobs table for SR (Service Request)
+      sql = `
+        UPDATE govilinkjobs 
+        SET status = 'Ongoing' 
+        WHERE id = ?
+      `;
+      tableName = 'govilinkjobs';
+    } else {
+      return reject(new Error("Invalid jobId format"));
+    }
+
+    db.plantcare.query(sql, [feildauditId], (err, results) => {
+      if (err) {
+        console.error("Database error:", err.message);
+        return reject(new Error("Database error"));
+      }
+
+      if (results.affectedRows === 0) {
+        console.log(`No record found in ${tableName} with ID:`, feildauditId);
+        return reject(new Error(`Record not found in ${tableName}`));
+      }
+
+      console.log(`Status updated successfully in ${tableName}:`, results);
+      resolve({
+        message: `Status updated to Ongoing successfully in ${tableName}`,
+        affectedRows: results.affectedRows,
+        table: tableName,
+      });
+    });
+  });
+};

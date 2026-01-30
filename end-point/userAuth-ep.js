@@ -1,13 +1,12 @@
 const userDao = require("../dao/userAuth-dao");
 const jwt = require("jsonwebtoken");
-const { loginSchema} = require("../Validations/Auth-validations");
+const { loginSchema } = require("../Validations/Auth-validations");
 const asyncHandler = require("express-async-handler");
 
 exports.login = asyncHandler(async (req, res) => {
-  console.log("hit login")
-  // Validate request body using Joi
+  console.log("hit login");
   const { error } = loginSchema.validate(req.body, { abortEarly: false });
-  console.log(error)
+  console.log(error);
 
   if (error) {
     return res.status(400).json({
@@ -24,26 +23,34 @@ exports.login = asyncHandler(async (req, res) => {
     const result = await userDao.loginUser(empId, password);
     console.log("User login successful:", result);
 
-        if (result.status !== "Approved") {
+    if (result.status === "Rejected") {
+      return res.status(403).json({
+        success: false,
+        message: "This Employee ID is Rejected",
+        status: result.status,
+      });
+    }
+
+    if (result.status === "Not Approved") {
       return res.status(403).json({
         success: false,
         message: "User not approved",
         status: result.status,
       });
     }
- // Define JWT payload
+
     const payload = {
       empId: result.empId,
       id: result.id,
       role: result.role || "user",
       passwordUpdate: result.passwordUpdate,
-      iat: Math.floor(Date.now() / 1000)
+      iat: Math.floor(Date.now() / 1000),
     };
 
-    // Create JWT token
-    const token = jwt.sign(payload, process.env.JWT_SECRET, { expiresIn: "8h" });
+    const token = jwt.sign(payload, process.env.JWT_SECRET, {
+      expiresIn: "8h",
+    });
 
-    // Send token as HTTP-only cookie (more secure)
     res.cookie("authToken", token, {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
@@ -51,7 +58,6 @@ exports.login = asyncHandler(async (req, res) => {
       maxAge: 8 * 60 * 60 * 1000, // 8 hours
     });
 
-    // Send response with token
     return res.status(200).json({
       success: true,
       message: "Login successful",
@@ -61,7 +67,7 @@ exports.login = asyncHandler(async (req, res) => {
         role: result.role,
         token,
         passwordUpdate: result.passwordUpdate,
-        status: result.status
+        status: result.status,
       },
     });
   } catch (err) {
@@ -70,16 +76,18 @@ exports.login = asyncHandler(async (req, res) => {
   }
 });
 
-exports.getprofile = asyncHandler(async(req,res)=>{
-  console.log('get profile')
+exports.getprofile = asyncHandler(async (req, res) => {
+  console.log("get profile");
   const officerId = req.user?.id;
-      if (!officerId) {
-      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
-    }
-  try{
+  if (!officerId) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Officer is not authenticated" });
+  }
+  try {
     const officerProfile = await userDao.getprofile(officerId);
 
-        res.status(200).json({
+    res.status(200).json({
       status: "success",
       data: officerProfile,
     });
@@ -87,7 +95,9 @@ exports.getprofile = asyncHandler(async(req,res)=>{
     console.error("Error fetching officer details:", error.message);
 
     if (error.message === "Officer not found") {
-      return res.status(404).json({ status: "error", message: "Officer not found" });
+      return res
+        .status(404)
+        .json({ status: "error", message: "Officer not found" });
     }
 
     res.status(500).json({
@@ -95,17 +105,19 @@ exports.getprofile = asyncHandler(async(req,res)=>{
       message: "An error occurred while fetching officer details",
     });
   }
-})
-exports.getmyprofile= asyncHandler(async(req,res)=>{
-  console.log('get profile')
+});
+exports.getmyprofile = asyncHandler(async (req, res) => {
+  console.log("get profile");
   const officerId = req.user.id;
-      if (!officerId) {
-      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
-    }
-  try{
+  if (!officerId) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Officer is not authenticated" });
+  }
+  try {
     const officerProfile = await userDao.getmyprofile(officerId);
 
-        res.status(200).json({
+    res.status(200).json({
       status: "success",
       data: officerProfile,
     });
@@ -113,7 +125,9 @@ exports.getmyprofile= asyncHandler(async(req,res)=>{
     console.error("Error fetching officer details:", error.message);
 
     if (error.message === "Officer not found") {
-      return res.status(404).json({ status: "error", message: "Officer not found" });
+      return res
+        .status(404)
+        .json({ status: "error", message: "Officer not found" });
     }
 
     res.status(500).json({
@@ -121,7 +135,7 @@ exports.getmyprofile= asyncHandler(async(req,res)=>{
       message: "An error occurred while fetching officer details",
     });
   }
-})
+});
 
 exports.changePassword = asyncHandler(async (req, res) => {
   const officerId = req.user.id;
@@ -129,7 +143,11 @@ exports.changePassword = asyncHandler(async (req, res) => {
   console.log("Hit change password");
 
   try {
-    const result = await userDao.changePassword(officerId, currentPassword, newPassword);
+    const result = await userDao.changePassword(
+      officerId,
+      currentPassword,
+      newPassword,
+    );
     res.status(200).json({
       status: "success",
       message: result.message,
@@ -160,16 +178,18 @@ exports.changePassword = asyncHandler(async (req, res) => {
   }
 });
 
-exports.getCFODistricts = asyncHandler(async(req,res)=>{
-  console.log('get officer distritcs')
+exports.getCFODistricts = asyncHandler(async (req, res) => {
+  console.log("get officer distritcs");
   const officerId = req.user.id;
-      if (!officerId) {
-      return res.status(400).json({ status: "error", message: "Officer is not authenticated" });
-    }
-  try{
+  if (!officerId) {
+    return res
+      .status(400)
+      .json({ status: "error", message: "Officer is not authenticated" });
+  }
+  try {
     const officerdistricts = await userDao.getCFODistricts(officerId);
 
-        res.status(200).json({
+    res.status(200).json({
       status: "success",
       data: officerdistricts,
     });
@@ -177,7 +197,9 @@ exports.getCFODistricts = asyncHandler(async(req,res)=>{
     console.error("Error fetching officer details:", error.message);
 
     if (error.message === "Officer not found") {
-      return res.status(404).json({ status: "error", message: "Officer not found" });
+      return res
+        .status(404)
+        .json({ status: "error", message: "Officer not found" });
     }
 
     res.status(500).json({
@@ -185,4 +207,4 @@ exports.getCFODistricts = asyncHandler(async(req,res)=>{
       message: "An error occurred while fetching officer details",
     });
   }
-})
+});
