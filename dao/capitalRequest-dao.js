@@ -370,34 +370,111 @@ exports.deleteAllInspectionData = async (reqId) => {
 };
 
 
-exports.updateAuditedDate = (reqId) => {
+exports.checkAllTablesHaveData = async (reqId) => {
   return new Promise((resolve, reject) => {
-    const query = `
-      UPDATE investmentrequest 
-      SET auditedDate = NOW() 
-      WHERE id = ?
-    `;
-
-    db.investments.query(query, [reqId], (error, results) => {
-      if (error) {
-        console.error('❌ Error updating auditedDate:', error);
-        return reject(error);
-      }
-
-      if (results.affectedRows === 0) {
-        return reject(new Error('No request found with the given ID'));
-      }
-
-      console.log(`✅ Updated auditedDate for request ID: ${reqId}`);
-      resolve({
-        success: true,
-        reqId: reqId,
-        affectedRows: results.affectedRows
+    const checkPromises = VALID_TABLES.map(tableName => {
+      return new Promise((resolveCheck, rejectCheck) => {
+        const query = `SELECT COUNT(*) AS count FROM \`${tableName}\` WHERE ${TABLE_FOREIGN_KEY} = ?`;
+        
+        db.investments.query(query, [reqId], (error, results) => {
+          if (error) {
+            console.error(`❌ Error checking ${tableName}:`, error);
+            rejectCheck(error);
+          } else {
+            const hasData = results[0].count > 0;
+            resolveCheck({
+              tableName,
+              hasData,
+              count: results[0].count
+            });
+          }
+        });
       });
     });
+
+    Promise.all(checkPromises)
+      .then(results => {
+        const missingTables = results.filter(r => !r.hasData).map(r => r.tableName);
+        const completedTables = results.filter(r => r.hasData).map(r => r.tableName);
+        
+        const allTablesHaveData = missingTables.length === 0;
+        
+        console.log(`📊 Data check for reqId ${reqId}:`);
+        console.log(`✅ Completed tables (${completedTables.length}/${VALID_TABLES.length}):`, completedTables);
+        
+        if (missingTables.length > 0) {
+          console.log(`❌ Missing tables (${missingTables.length}):`, missingTables);
+        }
+        
+        resolve({
+          allTablesHaveData,
+          totalTables: VALID_TABLES.length,
+          completedCount: completedTables.length,
+          missingCount: missingTables.length,
+          completedTables,
+          missingTables,
+          details: results
+        });
+      })
+      .catch(error => {
+        console.error('❌ Error checking tables:', error);
+        reject(error);
+      });
   });
 };
 
+exports.updateAuditedDate = async (reqId) => {
+  return new Promise(async (resolve, reject) => {
+    try {
+      // First check if all tables have data
+      const dataCheck = await exports.checkAllTablesHaveData(reqId);
+      
+      if (!dataCheck.allTablesHaveData) {
+        console.log(`⚠️ Cannot update auditedDate - Missing data in ${dataCheck.missingCount} table(s)`);
+        return reject({
+          success: false,
+          error: 'Incomplete inspection data',
+          message: `Missing data in ${dataCheck.missingCount} table(s): ${dataCheck.missingTables.join(', ')}`,
+          completedCount: dataCheck.completedCount,
+          totalTables: dataCheck.totalTables,
+          missingTables: dataCheck.missingTables
+        });
+      }
+      
+      // All tables have data - proceed with update
+      console.log(`✅ All ${VALID_TABLES.length} tables have data. Proceeding with auditedDate update...`);
+      
+      const query = `
+        UPDATE investmentrequest 
+        SET auditedDate = NOW() 
+        WHERE id = ?
+      `;
+
+      db.investments.query(query, [reqId], (error, results) => {
+        if (error) {
+          console.error('❌ Error updating auditedDate:', error);
+          return reject(error);
+        }
+
+        if (results.affectedRows === 0) {
+          return reject(new Error('No request found with the given ID'));
+        }
+
+        console.log(`✅ Updated auditedDate for request ID: ${reqId}`);
+        resolve({
+          success: true,
+          reqId: reqId,
+          affectedRows: results.affectedRows,
+          completedTables: dataCheck.completedTables,
+          totalTables: dataCheck.totalTables
+        });
+      });
+    } catch (error) {
+      console.error('❌ Error in updateAuditedDate:', error);
+      reject(error);
+    }
+  });
+};
 
 exports.isValidTable = isValidTable;
 exports.VALID_TABLES = VALID_TABLES;
