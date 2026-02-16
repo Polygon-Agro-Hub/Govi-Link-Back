@@ -78,25 +78,24 @@ exports.getclusterVisits = async (feildauditId) => {
 
 exports.UpdateStatus = async (feildauditId, jobId) => {
   console.log("Updating status to Ongoing for ID:", feildauditId, "JobID:", jobId);
-
   return new Promise((resolve, reject) => {
     // Determine which table to update based on jobId prefix
     let sql;
     let tableName;
 
     if (jobId && (jobId.startsWith('CA') || jobId.startsWith('FA'))) {
-      // Update feildaudits table for CA (Cluster Audit) or FA (Field Audit)
+
       sql = `
         UPDATE feildaudits 
-        SET status = 'Ongoing' 
+        SET status = 'Ongoing', startDate = NOW() 
         WHERE id = ?
       `;
       tableName = 'feildaudits';
     } else if (jobId && jobId.startsWith('SR')) {
-      // Update govilinkjobs table for SR (Service Request)
+
       sql = `
         UPDATE govilinkjobs 
-        SET status = 'Ongoing' 
+        SET status = 'Ongoing', startDate = NOW() 
         WHERE id = ?
       `;
       tableName = 'govilinkjobs';
