@@ -1,6 +1,6 @@
 const jwt = require('jsonwebtoken');
 const auth = (req, res, next) => {
-    const token = req.headers['authorization']?.split(' ')[1]; // Extract token from "Bearer <Token>"
+    const token = req.headers['authorization']?.split(' ')[1];
 
     if (!token) {
         console.error('No token provided');
@@ -19,10 +19,8 @@ const auth = (req, res, next) => {
             });
         }
 
-        console.log('Decoded token:', decoded);
-        // Attach decoded token to request
         req.user = decoded;
-        next();  // Continue to the next middleware or route handler
+        next();
     });
 };
 

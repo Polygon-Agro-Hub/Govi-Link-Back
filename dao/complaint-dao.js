@@ -1,6 +1,5 @@
 const db = require('../startup/database');
 
-
 exports.getComplainCategories = async () => {
     return new Promise((resolve, reject) => {
         const query = `
@@ -15,13 +14,10 @@ exports.getComplainCategories = async () => {
                 reject(error);
             } else {
                 resolve(results);
-                console.log(results)
             }
         });
     });
 };
-
-
 
 exports.createComplain = (officerId, language, complain, category, status, referenceNumber) => {
     return new Promise((resolve, reject) => {
@@ -35,7 +31,6 @@ exports.createComplain = (officerId, language, complain, category, status, refer
             if (rows.length === 0) {
                 return reject(new Error("Invalid complain category: The category does not exist"));
             }
-
 
             const insertSql = `
                 INSERT INTO feildofficercomplains
@@ -56,11 +51,8 @@ exports.createComplain = (officerId, language, complain, category, status, refer
     });
 };
 
-
 exports.countComplaintsByDate = async (date) => {
     const formattedDate = date.toISOString().split('T')[0]; // Convert date to YYYY-MM-DD
-
-
     return new Promise((resolve, reject) => {
         const query = `SELECT COUNT(*) AS count FROM feildofficercomplains WHERE DATE(createdAt) = ?`;
         db.plantcare.query(query, [formattedDate], (error, results) => {
@@ -73,7 +65,6 @@ exports.countComplaintsByDate = async (date) => {
         });
     });
 };
-
 
 exports.getAllComplaintsByUserId = async (userId) => {
     return new Promise((resolve, reject) => {

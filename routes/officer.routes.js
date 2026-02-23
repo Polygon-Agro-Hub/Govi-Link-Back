@@ -20,7 +20,7 @@ router.put('/complete/:id', auth, officerEp.setcomplete)
 router.get('/visits',auth, officerEp.getVisits)
 router.get('/visits/:date',auth, officerEp.getVisitsbydate)
 
-// Create Field Officer
+
 router.post('/create-field-officer', 
     auth, 
     upload.fields([
@@ -33,16 +33,12 @@ router.post('/create-field-officer',
     officerEp.createFieldOfficer
 );
 
-// Get Field Officers
 router.get('/get-field-officers', auth, officerEp.getFieldOfficers);
 
-// Field Officers Check NIC Validation
 router.get('/field-officers/check-nic/:nic', auth, officerEp.checkNicExists);
 
-// Field Officers Check Email Validation
 router.get('/field-officers/check-email/:email', auth, officerEp.checkEmailExists);
 
-// Field Officers Check Phone Number Validation
 router.get('/field-officers/check-phone/:phoneCode/:phoneNumber', auth, officerEp.checkPhoneExists);
 
 module.exports = router;

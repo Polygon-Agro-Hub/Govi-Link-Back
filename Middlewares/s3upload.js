@@ -11,12 +11,6 @@ const r2Client = new S3Client({
   forcePathStyle: true,
 });
 
-/**
- * @param {Buffer} fileBuffer - The file buffer to upload.
- * @param {string} fileName - The original file name.
- * @param {string} keyPrefix - The prefix path (folder structure) in the R2 bucket.
- * @returns {Promise<string>} - Resolves with the file URL after successful upload.
- */
 const uploadFileToS3 = async (fileBuffer, fileName, keyPrefix) => {
   try {
     const fileExtension = fileName.split(".").pop();

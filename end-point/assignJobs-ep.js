@@ -6,7 +6,6 @@ exports.getVisitsbydate = asyncHandler(async (req, res) => {
   const officerId = req.user.id;
   const { date } = req.params;
   const { isOverdueSelected } = req.query;
-  console.log("Officer ID:", officerId, "Date:", date);
   try {
     const visitsByDate = await assignJobsdao.getVisitsbydate(
       officerId,
@@ -26,13 +25,10 @@ exports.getVisitsbydate = asyncHandler(async (req, res) => {
   }
 });
 
-// Get assign officer list
 exports.getassignofficerlist = asyncHandler(async (req, res) => {
   const officerId = req.user.id;
   const { jobId, date } = req.params;
   const currentDate = new Date(date);
-
-  console.log("Officer ID:", officerId, "Job ID:", jobId, "Date:", currentDate);
 
   try {
     const irmUsers = await assignJobsdao.getassignofficerlistDAO(
@@ -53,24 +49,12 @@ exports.getassignofficerlist = asyncHandler(async (req, res) => {
   }
 });
 
-// Assign officer to field audits
 exports.assignOfficerToFieldAudits = asyncHandler(async (req, res) => {
   const { officerId, date, propose, fieldAuditIds, govilinkJobIds, auditType } =
     req.body;
   const assignedBy = req.user.id;
 
-  console.log("Assigning officer request:", {
-    officerId,
-    date,
-    assignedBy,
-    propose,
-    fieldAuditIds,
-    govilinkJobIds,
-    auditType,
-  });
-
   try {
-    // Validate required fields based on auditType
     if (!officerId || !date || !propose) {
       return res.status(400).json({
         success: false,
@@ -78,8 +62,6 @@ exports.assignOfficerToFieldAudits = asyncHandler(async (req, res) => {
           "Missing required fields: officerId, date, and propose are required",
       });
     }
-
-    // Validate that we have the correct IDs based on auditType
     if (
       auditType === "feildaudits" &&
       (!fieldAuditIds || fieldAuditIds.length === 0)
@@ -89,7 +71,6 @@ exports.assignOfficerToFieldAudits = asyncHandler(async (req, res) => {
         message: "Missing fieldAuditIds for feildaudits type",
       });
     }
-
     if (
       auditType === "govilinkjobs" &&
       (!govilinkJobIds || govilinkJobIds.length === 0)

@@ -1,17 +1,7 @@
 const db = require("../startup/database");
 
 exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
-  console.log(
-    "Officer ID:",
-    officerId,
-    "Date:",
-    date,
-    "isOverdue:",
-    isOverdueSelected
-  );
-
   return new Promise((resolve, reject) => {
-    // Format date as YYYY-MM-DD
     const formatDate = (d) => {
       const dt = new Date(d);
       const yyyy = dt.getFullYear();
@@ -23,8 +13,6 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     const selectedDateString = formatDate(date);
     const isOverdue =
       isOverdueSelected === true || isOverdueSelected === "true";
-
-    console.log("✔ isOverdue:", isOverdue);
 
     const dateCondition = isOverdue
       ? `
@@ -50,10 +38,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     const gljDateCondition = isOverdue
       ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND glj.status = 'Pending'"
       : "DATE(glj.sheduleDate) = ? AND glj.status = 'Pending' AND jao.isActive = 1";
-    console.log("FAU condition:", dateCondition);
-    console.log("GLJ condition:", gljDateCondition);
 
-    // Main SQL
     const sql = `
       SELECT * FROM (
         SELECT 
@@ -66,11 +51,11 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
           CASE WHEN cp.userId IS NOT NULL THEN cp.userId END AS farmerId,
           CASE WHEN cp.payType='Crop' THEN ocs.longitude END AS longitude,
           CASE WHEN cp.payType='Crop' THEN ocs.latitude END AS latitude,
-CASE 
-  WHEN cp.clusterId IS NOT NULL THEN fc.district
-  WHEN cp.payType = 'Crop' THEN fcrop.district
-  WHEN cp.payType = 'Farm' THEN ffarm.district
-END AS district,
+        CASE 
+          WHEN cp.clusterId IS NOT NULL THEN fc.district
+          WHEN cp.payType = 'Crop' THEN fcrop.district
+          WHEN cp.payType = 'Farm' THEN ffarm.district
+        END AS district,
           CASE WHEN cp.payType='Crop' THEN fcrop.plotNo WHEN cp.payType='Farm' THEN ffarm.plotNo END AS plotNo,
           CASE WHEN cp.payType='Crop' THEN fcrop.street WHEN cp.payType='Farm' THEN ffarm.street END AS street,
           CASE WHEN cp.payType='Crop' THEN fcrop.city WHEN cp.payType='Farm' THEN ffarm.city END AS city,
@@ -95,22 +80,22 @@ END AS district,
       ELSE NULL
     END AS totalClusterCount,
     CASE
-  WHEN cp.clusterId IS NOT NULL THEN (
-    CASE
-      WHEN 
-        (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id) = 0
-      THEN 0
-      ELSE ROUND(
-        (
-          (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id AND fauc.isCompleted = 1)
-          /
-          (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id)
-        ) * 100
-      , 0)
-    END
-  )
-  ELSE NULL
-END AS completionPercentage
+    WHEN cp.clusterId IS NOT NULL THEN (
+      CASE
+        WHEN 
+          (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id) = 0
+        THEN 0
+        ELSE ROUND(
+          (
+            (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id AND fauc.isCompleted = 1)
+            /
+            (SELECT COUNT(*) FROM feildauditcluster AS fauc WHERE fauc.feildAuditId = fau.id)
+          ) * 100
+        , 0)
+      END
+    )
+    ELSE NULL
+  END AS completionPercentage
 
         FROM feildaudits AS fau
         LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
@@ -154,7 +139,6 @@ END AS completionPercentage
       ORDER BY sheduleDate DESC
     `;
 
-    // Correct parameters depending on overdue or date selection
     let params;
 
     if (isOverdue) {
@@ -163,18 +147,13 @@ END AS completionPercentage
       params = [officerId, selectedDateString, officerId, selectedDateString];
     }
 
-    console.log("SQL Params:", params);
-
     db.plantcare.query(sql, params, (err, results) => {
       if (err) return reject(new Error("Database error: " + err.message));
-      console.log("✅ Visits fetched successfully → Count:", results.length);
       resolve(results);
-      console.log({ results });
     });
   });
 };
 
-// Get assign officer list
 exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
   return new Promise((resolve, reject) => {
     try {
@@ -187,8 +166,6 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
       };
 
       const selectedDateString = formatDate(currentDate);
-
-      // Step 1: Get the current officer's details
       const getOfficerSql = `
         SELECT 
           id,
@@ -228,9 +205,6 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
           includeCurrentOfficer = false;
         }
 
-        console.log(`Target IRM ID: ${targetIrmId}`);
-
-        // Step 2: Count assignments from both feildaudits and jobassignofficer tables
         const getUsersSql = `
           SELECT 
             fo.id,
@@ -295,16 +269,12 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
           targetIrmId,
         ];
 
-        console.log("Counting assignments for date:", selectedDateString);
-        console.log("SQL Parameters:", params);
-
         db.plantcare.query(getUsersSql, params, (err, userResults) => {
           if (err) {
             console.error("Database error fetching IRM users:", err.message);
             return reject(new Error("Database error: " + err.message));
           }
 
-          // Format the response with detailed counts
           const formattedUsers = userResults.map((user) => {
             const feildauditsCount = parseInt(user.feildauditsCount) || 0;
             const jobassignofficerCount =
@@ -329,20 +299,6 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
             };
           });
 
-          // Debug: Log each officer's assignment breakdown with correct officer ID
-          formattedUsers.forEach((user) => {
-            console.log(
-              `Officer ID: ${user.id} - ${user.firstName} ${user.lastName}:`
-            );
-            console.log(
-              `  - Feildaudits assignments: ${user.feildauditsCount}`
-            );
-            console.log(
-              `  - Jobassignofficer assignments: ${user.jobassignofficerCount}`
-            );
-            console.log(`  - Total assignments: ${user.totalAssignedCount}`);
-          });
-
           resolve(formattedUsers);
         });
       });
@@ -353,7 +309,6 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
   });
 };
 
-// Assign field officer to field audits
 exports.assignOfficerToFieldAuditsDAO = async (
   officerId,
   date,
@@ -376,8 +331,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       }
 
       connection = conn;
-
-      // Start transaction
       connection.beginTransaction((transactionErr) => {
         if (transactionErr) {
           connection.release();
@@ -385,8 +338,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
             new Error("Transaction error: " + transactionErr.message)
           );
         }
-
-        // Step 1: Verify officer exists
         const verifyOfficerSql = `SELECT id, status FROM feildofficer WHERE id = ? AND status = 'Approved'`;
 
         connection.query(
@@ -403,10 +354,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
             if (officerResults.length === 0) {
               return rollback(connection, "Officer not found or not approved");
             }
-
-            // Step 2: Determine which update function to call based on auditType
             if (auditType === "feildaudits") {
-              // Update feildaudits table using fieldAuditIds
               updateFieldAudits(
                 connection,
                 officerId,
@@ -416,7 +364,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 assignedBy
               );
             } else if (auditType === "govilinkjobs") {
-              // Update jobassignofficer table using govilinkJobIds
               updateGovilinkJobs(
                 connection,
                 officerId,
@@ -434,7 +381,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       });
     });
 
-    // Function to update feildaudits table (for feildaudits type)
     function updateFieldAudits(
       conn,
       assignOfficerId,
@@ -443,7 +389,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       proposeType,
       assignedBy
     ) {
-      // First, check if these field audits exist
       const checkFieldAuditsSql = `
         SELECT id, jobId, assignOfficerId, status 
         FROM feildaudits 
@@ -492,12 +437,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
           WHERE id IN (?)
         `;
 
-        console.log("Updating field audits with params:", {
-          assignOfficerId,
-          scheduleDate,
-          fieldAuditIds,
-        });
-
         conn.query(
           updateFieldAuditsSql,
           [assignOfficerId, scheduleDate, assignedBy, fieldAuditIds],
@@ -509,14 +448,12 @@ exports.assignOfficerToFieldAuditsDAO = async (
               );
             }
 
-            // Include reassignment info in the audit results if needed
             const updatedAuditResults = auditResults.map((audit) => ({
               ...audit,
               previousAssignOfficerId: audit.assignOfficerId,
               newAssignOfficerId: assignOfficerId,
             }));
 
-            // Directly commit without fetching final results
             commitTransaction(
               conn,
               updatedAuditResults,
@@ -528,8 +465,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
         );
       });
     }
-
-    // Function to update govilinkjobs (for govilinkjobs type)
     function updateGovilinkJobs(
       conn,
       officerId,
@@ -538,7 +473,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       scheduleDate,
       proposeType
     ) {
-      // First, check if these govilink jobs exist
       const checkGovilinkJobsSql = `
         SELECT gj.id
         FROM govilinkjobs gj
@@ -557,7 +491,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
           return rollback(conn, "No govilink jobs found with the given IDs");
         }
 
-        // Step 1: Update or insert into jobassignofficer table
         updateJobAssignOfficerTable(
           conn,
           officerId,
@@ -571,7 +504,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       });
     }
 
-    // Function to update jobassignofficer table
     function updateJobAssignOfficerTable(
       conn,
       officerId,
@@ -581,14 +513,11 @@ exports.assignOfficerToFieldAuditsDAO = async (
       scheduleDate,
       proposeType
     ) {
-      // Check which job IDs already exist in jobassignofficer table with isActive = 1
       const checkExistingAssignmentsSql = `
         SELECT jobId, officerId
         FROM jobassignofficer 
         WHERE jobId IN (?) AND isActive = 1
       `;
-
-      console.log("Checking existing assignments for job IDs:", govilinkJobIds);
 
       conn.query(
         checkExistingAssignmentsSql,
@@ -601,11 +530,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
             );
           }
 
-          console.log(
-            "Existing active assignments found:",
-            existingAssignments
-          );
-
           const existingJobIds = existingAssignments.map(
             (assignment) => assignment.jobId
           );
@@ -614,16 +538,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
             (jobId) => !existingJobIds.includes(jobId)
           );
 
-          console.log({
-            existingJobIds,
-            newJobIds,
-            govilinkJobIds,
-          });
-
           let totalAffectedRows = 0;
           const allPromises = [];
-
-          // Step 1: Deactivate existing active assignments (set isActive = 0)
           if (existingJobIds.length > 0) {
             const deactivateExistingSql = `
               UPDATE jobassignofficer 
@@ -631,8 +547,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 isActive = 0
               WHERE jobId IN (?) AND isActive = 1
             `;
-
-            console.log("Deactivating job IDs:", existingJobIds);
 
             const deactivatePromise = new Promise((resolve, reject) => {
               conn.query(
@@ -643,13 +557,10 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     reject(
                       new Error(
                         "Database error deactivating existing assignments: " +
-                          err.message
+                        err.message
                       )
                     );
                   } else {
-                    console.log(
-                      `Deactivated ${deactivateResults.affectedRows} existing assignments in jobassignofficer`
-                    );
                     totalAffectedRows += deactivateResults.affectedRows;
                     resolve(deactivateResults);
                   }
@@ -658,15 +569,12 @@ exports.assignOfficerToFieldAuditsDAO = async (
             });
             allPromises.push(deactivatePromise);
 
-            // Step 2: Insert new active assignments for previously assigned jobs
             const insertReassignedValues = existingJobIds.map((jobId) => [
               jobId,
               officerId,
               1,
               currentTimestamp,
             ]);
-
-            console.log("Inserting reassigned values:", insertReassignedValues);
 
             const insertReassignedSql = `
               INSERT INTO jobassignofficer (jobId, officerId, isActive, createdAt)
@@ -682,13 +590,10 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     reject(
                       new Error(
                         "Database error inserting reassigned assignments: " +
-                          err.message
+                        err.message
                       )
                     );
                   } else {
-                    console.log(
-                      `Inserted ${insertResults.affectedRows} reassigned assignments in jobassignofficer`
-                    );
                     totalAffectedRows += insertResults.affectedRows;
                     resolve(insertResults);
                   }
@@ -697,7 +602,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
             });
             allPromises.push(insertReassignedPromise);
           }
-          // Step 3: Update govilinkjobs table schedule date and status
           const updateGovilinkJobsSql = `
             UPDATE govilinkjobs 
             SET 
@@ -707,16 +611,10 @@ exports.assignOfficerToFieldAuditsDAO = async (
             WHERE id IN (?)
           `;
 
-          console.log("Updating govilink jobs with:", {
-            scheduleDate,
-            assignedBy,
-            govilinkJobIds
-          });
-
           const updateGovilinkPromise = new Promise((resolve, reject) => {
             conn.query(
               updateGovilinkJobsSql,
-              [scheduleDate,assignedBy, govilinkJobIds],
+              [scheduleDate, assignedBy, govilinkJobIds],
               (err, updateResults) => {
                 if (err) {
                   reject(
@@ -725,9 +623,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     )
                   );
                 } else {
-                  console.log(
-                    `Updated ${updateResults.affectedRows} govilink jobs`
-                  );
                   totalAffectedRows += updateResults.affectedRows;
                   resolve(updateResults);
                 }
@@ -736,11 +631,8 @@ exports.assignOfficerToFieldAuditsDAO = async (
           });
           allPromises.push(updateGovilinkPromise);
 
-          // Wait for all operations to complete
           Promise.all(allPromises)
             .then(() => {
-              console.log("All operations completed successfully");
-              // Directly commit without fetching final results
               commitTransaction(
                 conn,
                 jobResults,
@@ -757,7 +649,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       );
     }
 
-    // Function to commit transaction
     function commitTransaction(
       conn,
       results,
@@ -772,13 +663,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
             "Transaction commit error: " + commitErr.message
           );
         }
-
-        console.log(
-          `Successfully processed ${results.length} records in ${tableName}`
-        );
-
         conn.release();
-
         resolve({
           success: true,
           message: `Successfully assigned officer to ${affectedRows} ${proposeType} jobs`,
@@ -792,7 +677,6 @@ exports.assignOfficerToFieldAuditsDAO = async (
       });
     }
 
-    // Rollback helper function
     function rollback(conn, errorMessage) {
       conn.rollback(() => {
         conn.release();

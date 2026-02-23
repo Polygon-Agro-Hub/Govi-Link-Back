@@ -9,31 +9,22 @@ exports.loginUser = async (empId, password) => {
       WHERE empId = ?
     `;
     const [results] = await db.plantcare.promise().query(sql, [empId]);
-
     if (results.length === 0) {
-      // EMP ID does not exist
       throw new Error("User not found");
     }
 
     const user = results[0];
-
-    // Check password FIRST before checking status
     const isPasswordValid = await bcrypt.compare(password, user.password);
     if (!isPasswordValid) {
       throw new Error("Invalid password");
     }
-
-    // Now check status with specific messages
     if (user.status === "Rejected") {
       throw new Error("This Employee ID is Rejected");
     }
-
     if (user.status === "Not Approved") {
       throw new Error("User not approved");
     }
-
     if (user.status !== "Approved") {
-      // Catch any other status that's not Approved
       throw new Error("User not approved");
     }
 
@@ -46,19 +37,17 @@ exports.loginUser = async (empId, password) => {
       status: user.status,
     };
   } catch (err) {
-    // Pass proper message to the frontend
     throw new Error(err.message);
   }
 };
 
 exports.getprofile = async (officerId) => {
-  console.log("userID", officerId);
   return new Promise((resolve, reject) => {
     let sql = `
-  SELECT empId, JobRole AS role,status, firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg
-  FROM feildofficer
-  WHERE id = ?
-  `;
+      SELECT empId, JobRole AS role,status, firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg
+      FROM feildofficer
+      WHERE id = ?
+      `;
 
     db.plantcare.query(sql, [officerId], (err, results) => {
       if (err) {
@@ -76,14 +65,13 @@ exports.getprofile = async (officerId) => {
 };
 
 exports.getmyprofile = async (officerId) => {
-  console.log("userID", officerId);
   return new Promise((resolve, reject) => {
     let sql = `
-  SELECT empId,firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg, phoneNumber1,phoneNumber2,nic,
-  house,city,street,email
-  FROM feildofficer
-  WHERE id = ?
-  `;
+      SELECT empId,firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg, phoneNumber1,phoneNumber2,nic,
+      house,city,street,email
+      FROM feildofficer
+      WHERE id = ?
+      `;
 
     db.plantcare.query(sql, [officerId], (err, results) => {
       if (err) {
@@ -94,7 +82,6 @@ exports.getmyprofile = async (officerId) => {
       if (results.length === 0) {
         return reject(new Error("Officer not found"));
       }
-
       resolve(results[0]);
     });
   });
@@ -145,33 +132,28 @@ exports.changePassword = async (officerId, currentPassword, newPassword) => {
 };
 
 exports.getCFODistricts = async (officerId) => {
-  console.log("userID", officerId);
   return new Promise((resolve, reject) => {
     let sql = `
-  SELECT assignDistrict
-  FROM feildofficer
-  WHERE id = ?
-  `;
+      SELECT assignDistrict
+      FROM feildofficer
+      WHERE id = ?
+      `;
 
     db.plantcare.query(sql, [officerId], (err, results) => {
       if (err) {
         console.error("Database error:", err.message);
         return reject(new Error("Database error"));
       }
-
       if (results.length === 0) {
         return reject(new Error("Officer not found"));
       }
 
       const row = results[0];
-
-      // Convert district string → array
       const districtArray = row.assignDistrict
         ? row.assignDistrict.split(",").map((item) => item.trim())
         : [];
 
       resolve(districtArray);
-      console.log(districtArray);
     });
   });
 };
