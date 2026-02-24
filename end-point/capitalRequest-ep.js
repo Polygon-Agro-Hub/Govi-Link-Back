@@ -52,8 +52,8 @@ exports.saveInspectionData = async (req, res) => {
   }
 
   try {
-    const uploadFileToS3 = require("../Middlewares/s3upload");
-    const deleteFromR2 = require("../Middlewares/s3delete");
+    const uploadFileToS3 = require("../middleware/s3upload");
+    const deleteFromR2 = require("../middleware/s3delete");
 
     const exists = await capitalRequesDao.checkRecordExists(tableName, reqId);
     let dataToSave = { reqId };

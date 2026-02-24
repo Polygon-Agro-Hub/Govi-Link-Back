@@ -1,7 +1,7 @@
 const requestAuditDao = require("../dao/requestAudit-dao");
 const asyncHandler = require("express-async-handler");
-const uploadFileToR2 = require("../Middlewares/s3upload");
-const delectfilesOnR2 = require("../Middlewares/s3delete");
+const uploadFileToR2 = require("../middleware/s3upload");
+const delectfilesOnR2 = require("../middleware/s3delete");
 
 exports.setsaveProblem = async (req, res) => {
   try {

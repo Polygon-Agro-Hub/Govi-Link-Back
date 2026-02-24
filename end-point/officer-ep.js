@@ -1,10 +1,10 @@
 const officerDao = require("../dao/officer-dao");
 const asyncHandler = require("express-async-handler");
-const uploadFileToR2 = require("../Middlewares/s3upload");
-const delectfilesOnR2 = require("../Middlewares/s3delete");
+const uploadFileToR2 = require("../middleware/s3upload");
+const delectfilesOnR2 = require("../middleware/s3delete");
 const {
   createFieldOfficerSchema,
-} = require("../Validations/officer-validation");
+} = require("../validation/officer-validation");
 
 exports.getVisits = asyncHandler(async (req, res) => {
   const officerId = req.user.id;

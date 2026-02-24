@@ -1,4 +1,4 @@
-const uploadFileToS3 = require("../Middlewares/s3upload");
+const uploadFileToS3 = require("../middleware/s3upload");
 const db = require("../startup/database");
 
 exports.getOfficerVisitsCombined = async (officerId) => {

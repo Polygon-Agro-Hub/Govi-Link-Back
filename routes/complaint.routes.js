@@ -1,6 +1,6 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../Middlewares/auth.middleware');
+const auth = require('../middleware/auth.middleware');
 const complaintEp = require('../end-point/complaint-ep');
 
 router.get('/get-complain-category', complaintEp.getComplainCategory );
