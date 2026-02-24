@@ -1,5 +1,5 @@
-const uploadFileToS3 = require('../Middlewares/s3upload');
-const db = require('../startup/database');
+const uploadFileToS3 = require("../Middlewares/s3upload");
+const db = require("../startup/database");
 
 exports.getOfficerVisitsCombined = async (officerId) => {
   const query = (sql, params) =>
@@ -222,7 +222,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60 AND (fau.status = 'Pending' OR fau.status = 'Ongoing'))
       ORDER BY completionPercentage ASC;
     `;
-    
+
     const clusterSql = `
       SELECT 
         fau.id,
@@ -305,19 +305,19 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       HAVING completionPercentage > 0 AND completionPercentage <= 60
     `;
 
-    const [visits, draftVisits, clusterVisits, requestVisits] = await Promise.all([
-      query(visitsSql, [officerId, officerId]),
-      query(draftSql, [officerId]),
-      query(clusterSql, [officerId]),
-      query(requestSql, [officerId])
-    ]);
+    const [visits, draftVisits, clusterVisits, requestVisits] =
+      await Promise.all([
+        query(visitsSql, [officerId, officerId]),
+        query(draftSql, [officerId]),
+        query(clusterSql, [officerId]),
+        query(requestSql, [officerId]),
+      ]);
     const combinedDrafts = [...draftVisits, ...clusterVisits, ...requestVisits];
 
     return {
       visits,
-      draftVisits: combinedDrafts
+      draftVisits: combinedDrafts,
     };
-
   } catch (err) {
     console.error("Error fetching officer visits:", err);
     throw err;
@@ -464,7 +464,6 @@ exports.getofficerVisits = async (officerId) => {
   });
 };
 
-
 exports.getofficerVisitsDraft = async (officerId) => {
   return new Promise((resolve, reject) => {
     const individualSql = `
@@ -554,7 +553,7 @@ exports.getofficerVisitsDraft = async (officerId) => {
         ps2.phoneNumber AS farmerMobile,
         glj.sheduleDate AS sheduleDate,
 
-        -- ✅ Completion logic
+        -- Completion logic
         CASE
           WHEN gjs.id IS NOT NULL AND gjp.id IS NOT NULL THEN 100
           WHEN gjs.id IS NOT NULL AND gjp.id IS NULL THEN 50
@@ -567,7 +566,7 @@ exports.getofficerVisitsDraft = async (officerId) => {
       LEFT JOIN officerservices AS os ON glj.serviceId = os.id
       LEFT JOIN farms AS f ON glj.farmId = f.id
 
-      -- ✅ Check for suggestion and problem existence
+      -- Check for suggestion and problem existence
       LEFT JOIN govijoblinksuggestions AS gjs ON gjs.jobId = glj.id
       LEFT JOIN govijoblinkproblems AS gjp ON gjp.jobId = glj.id
 
@@ -578,28 +577,40 @@ exports.getofficerVisitsDraft = async (officerId) => {
         HAVING completionPercentage > 0 AND completionPercentage <= 100
     `;
 
-    db.plantcare.query(individualSql, [officerId], (err1, individualResults) => {
-      if (err1) return reject(err1);
+    db.plantcare.query(
+      individualSql,
+      [officerId],
+      (err1, individualResults) => {
+        if (err1) return reject(err1);
 
-      db.plantcare.query(clusterSql, [officerId], (err2, clusterResults) => {
-        if (err2) return reject(err2);
+        db.plantcare.query(clusterSql, [officerId], (err2, clusterResults) => {
+          if (err2) return reject(err2);
 
-        db.plantcare.query(requestSql, [officerId], (err3, requestResults) => {
-          if (err3) return reject(err3);
+          db.plantcare.query(
+            requestSql,
+            [officerId],
+            (err3, requestResults) => {
+              if (err3) return reject(err3);
 
-          const results = [
-            ...individualResults,
-            ...clusterResults,
-            ...requestResults,
-          ];
-          resolve(results);
+              const results = [
+                ...individualResults,
+                ...clusterResults,
+                ...requestResults,
+              ];
+              resolve(results);
+            },
+          );
         });
-      });
-    });
+      },
+    );
   });
 };
 
-exports.getindividualauditsquestions = async (certificationpaymentId, farmId, clusterId) => {
+exports.getindividualauditsquestions = async (
+  certificationpaymentId,
+  farmId,
+  clusterId,
+) => {
   return new Promise((resolve, reject) => {
     let sql = `
       SELECT 
@@ -631,7 +642,9 @@ exports.getindividualauditsquestions = async (certificationpaymentId, farmId, cl
       }
 
       if (results.length === 0) {
-        return reject(new Error("No questions found for this certification payment"));
+        return reject(
+          new Error("No questions found for this certification payment"),
+        );
       }
 
       const first = results[0];
@@ -640,15 +653,23 @@ exports.getindividualauditsquestions = async (certificationpaymentId, farmId, cl
         srtName: first.srtName || "",
         createdAt: first.createdAt || null,
         slavequestionnaireId: first.slavequestionnaireId || null,
-        certificateId: first.certificateId || null
+        certificateId: first.certificateId || null,
       };
 
-      const questions = results.map(({ logo, srtName, createdAt, slavequestionnaireId, certificateId, ...rest }) => rest);
+      const questions = results.map(
+        ({
+          logo,
+          srtName,
+          createdAt,
+          slavequestionnaireId,
+          certificateId,
+          ...rest
+        }) => rest,
+      );
       resolve({ certificate, questions });
     });
   });
 };
-
 
 exports.setCheckQuestions = async (id) => {
   return new Promise((resolve, reject) => {
@@ -661,7 +682,9 @@ exports.setCheckQuestions = async (id) => {
     db.plantcare.query(selectSql, [id], (err, results) => {
       if (err) {
         console.error("❌ Database error (select):", err.message);
-        return reject(new Error("Database error while fetching current tickResult"));
+        return reject(
+          new Error("Database error while fetching current tickResult"),
+        );
       }
 
       if (results.length === 0) {
@@ -706,7 +729,9 @@ exports.getexistingTaskImageImage = async (id) => {
     db.plantcare.query(sql, [id], (err, results) => {
       if (err) {
         console.error("❌ Database error:", err.message);
-        return reject(new Error("Database error while fetching existing task image"));
+        return reject(
+          new Error("Database error while fetching existing task image"),
+        );
       }
 
       if (!results || results.length === 0) {
@@ -764,19 +789,19 @@ exports.setsaveProblem = async (payload, officerId) => {
     const { problem, solution, slavequestionnaireId } = payload;
 
     if (!officerId) {
-      console.error("❌ Missing officerId");
+      console.error("Missing officerId");
       return reject(new Error("Invalid officerId"));
     }
 
     const checkSql = `SELECT id FROM feildofficer WHERE id = ?`;
     db.plantcare.query(checkSql, [officerId], (checkErr, rows) => {
       if (checkErr) {
-        console.error("❌ DB error checking officer:", checkErr.message);
+        console.error("DB error checking officer:", checkErr.message);
         return reject(new Error("Database error while checking officer"));
       }
 
       if (rows.length === 0) {
-        console.error("❌ Officer not found in feildofficer table:", officerId);
+        console.error("Officer not found in feildofficer table:", officerId);
         return reject(new Error(`Officer with ID ${officerId} not found`));
       }
       const insertSql = `
@@ -784,13 +809,17 @@ exports.setsaveProblem = async (payload, officerId) => {
         VALUES (?, ?, ?, ?, NOW())
       `;
 
-      db.plantcare.query(insertSql, [slavequestionnaireId, problem, solution, officerId], (err, result) => {
-        if (err) {
-          console.error("❌ DB error inserting problem:", err.message);
-          return reject(new Error("Database error while saving problem"));
-        }
-        resolve({ id: result.insertId });
-      });
+      db.plantcare.query(
+        insertSql,
+        [slavequestionnaireId, problem, solution, officerId],
+        (err, result) => {
+          if (err) {
+            console.error("DB error inserting problem:", err.message);
+            return reject(new Error("Database error while saving problem"));
+          }
+          resolve({ id: result.insertId });
+        },
+      );
     });
   });
 };
@@ -798,7 +827,7 @@ exports.setsaveProblem = async (payload, officerId) => {
 exports.getProblemsSolutionsBySlaveId = async (slaveId) => {
   return new Promise((resolve, reject) => {
     if (!slaveId) {
-      console.error("❌ Missing slaveId");
+      console.error("Missing slaveId");
       return reject(new Error("Invalid slaveId"));
     }
     const sql = `
@@ -810,7 +839,7 @@ exports.getProblemsSolutionsBySlaveId = async (slaveId) => {
 
     db.plantcare.query(sql, [slaveId], (err, results) => {
       if (err) {
-        console.error("❌ DB error fetching problems:", err.message);
+        console.error("DB error fetching problems:", err.message);
         return reject(new Error("Database error while fetching problems"));
       }
       resolve(results);
@@ -823,7 +852,7 @@ exports.updateProblem = async (id, payload) => {
     const { problem, solution } = payload;
 
     if (!id) {
-      console.error("❌ Missing id or officerId");
+      console.error("Missing id or officerId");
       return reject(new Error("Invalid input"));
     }
 
@@ -835,12 +864,14 @@ exports.updateProblem = async (id, payload) => {
 
     db.plantcare.query(updateSql, [problem, solution, id], (err, result) => {
       if (err) {
-        console.error("❌ DB error updating problem:", err.message);
+        console.error("DB error updating problem:", err.message);
         return reject(new Error("Database error while updating problem"));
       }
 
       if (result.affectedRows === 0) {
-        return reject(new Error("Problem not found or not authorized to update"));
+        return reject(
+          new Error("Problem not found or not authorized to update"),
+        );
       }
       resolve({ id });
     });
@@ -855,7 +886,7 @@ exports.setcomplete = async (id, payload) => {
       const sql = `UPDATE feildaudits SET status = 'Completed', completeDate = NOW() WHERE id = ?`;
       db.plantcare.query(sql, [id], (err, result) => {
         if (err) {
-          console.error("❌ DB error updating feildaudit:", err.message);
+          console.error("DB error updating feildaudit:", err.message);
           return reject(new Error("Database error while updating feildaudit"));
         }
         if (result.affectedRows === 0) {
@@ -863,9 +894,7 @@ exports.setcomplete = async (id, payload) => {
         }
         return resolve({ success: true, message: "Audit marked as completed" });
       });
-    }
-
-    else {
+    } else {
       const sqlUpdateFarm = `
         UPDATE feildauditcluster 
         SET isCompleted = 1 
@@ -874,8 +903,13 @@ exports.setcomplete = async (id, payload) => {
 
       db.plantcare.query(sqlUpdateFarm, [id, farmId], (err, result) => {
         if (err) {
-          console.error("❌ DB error updating farmclusterfarmers:", err.message);
-          return reject(new Error("Database error while updating farm completion"));
+          console.error(
+            "DB error updating farmclusterfarmers:",
+            err.message,
+          );
+          return reject(
+            new Error("Database error while updating farm completion"),
+          );
         }
 
         if (result.affectedRows === 0) {
@@ -890,15 +924,17 @@ exports.setcomplete = async (id, payload) => {
 
         db.plantcare.query(sqlCheckAll, [id], (err, rows) => {
           if (err) {
-            console.error("❌ DB error checking farm completion:", err.message);
-            return reject(new Error("Database error while verifying cluster completion"));
+            console.error("DB error checking farm completion:", err.message);
+            return reject(
+              new Error("Database error while verifying cluster completion"),
+            );
           }
 
           const { total, completed } = rows[0];
           const totalNum = Number(total);
           const completedNum = Number(completed);
 
-          const threshold = Math.ceil(totalNum * 0.20);
+          const threshold = Math.ceil(totalNum * 0.2);
 
           if (completedNum >= threshold) {
             const sqlUpdateAudit = `
@@ -909,18 +945,29 @@ exports.setcomplete = async (id, payload) => {
 
             db.plantcare.query(sqlUpdateAudit, [id], (err2, result2) => {
               if (err2) {
-                console.error("❌ DB error updating feildaudit:", err2.message);
-                return reject(new Error("Database error while completing feildaudit"));
+                console.error("DB error updating feildaudit:", err2.message);
+                return reject(
+                  new Error("Database error while completing feildaudit"),
+                );
               }
 
               if (completedNum === totalNum) {
-                return resolve({ success: true, message: "Cluster audit fully completed" });
+                return resolve({
+                  success: true,
+                  message: "Cluster audit fully completed",
+                });
               } else {
-                return resolve({ success: true, message: `Cluster audit completed with ${completedNum}/${totalNum} farms` });
+                return resolve({
+                  success: true,
+                  message: `Cluster audit completed with ${completedNum}/${totalNum} farms`,
+                });
               }
             });
           } else {
-            return resolve({ success: true, message: `Farm marked complete, ${threshold - completedNum} more needed` });
+            return resolve({
+              success: true,
+              message: `Farm marked complete, ${threshold - completedNum} more needed`,
+            });
           }
         });
       });
@@ -939,7 +986,8 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     };
 
     const selectedDateString = formatDate(date);
-    const isOverdue = (isOverdueSelected === true || isOverdueSelected === "true");
+    const isOverdue =
+      isOverdueSelected === true || isOverdueSelected === "true";
     const dateCondition = isOverdue
       ? `
         DATE(fau.sheduleDate) < DATE(CURDATE()) 
@@ -1084,7 +1132,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
   });
 };
 
-exports.getFieldOfficers = async (irmId, search = '') => {
+exports.getFieldOfficers = async (irmId, search = "") => {
   return new Promise((resolve, reject) => {
     let sql = `
             SELECT 
@@ -1103,7 +1151,7 @@ exports.getFieldOfficers = async (irmId, search = '') => {
 
     const queryParams = [irmId];
 
-    if (search && search.trim() !== '') {
+    if (search && search.trim() !== "") {
       sql += `
                 AND (
                     firstName LIKE ? OR 
@@ -1132,7 +1180,7 @@ exports.getFieldOfficers = async (irmId, search = '') => {
 
       resolve({
         data: results,
-        count: results.length
+        count: results.length,
       });
     });
   });
@@ -1142,23 +1190,23 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
   return new Promise(async (resolve, reject) => {
     try {
       const assignDistrictString = Array.isArray(officerData.assignDistrict)
-        ? officerData.assignDistrict.join(', ')
+        ? officerData.assignDistrict.join(", ")
         : officerData.assignDistrict;
 
       let languageString = "";
-      if (typeof officerData.languages === 'string') {
+      if (typeof officerData.languages === "string") {
         try {
           const languagesObj = JSON.parse(officerData.languages);
           languageString = Object.keys(languagesObj)
-            .filter(lang => languagesObj[lang])
-            .join(', ');
+            .filter((lang) => languagesObj[lang])
+            .join(", ");
         } catch (error) {
           languageString = officerData.languages;
         }
-      } else if (typeof officerData.languages === 'object') {
+      } else if (typeof officerData.languages === "object") {
         languageString = Object.keys(officerData.languages)
-          .filter(lang => officerData.languages[lang])
-          .join(', ');
+          .filter((lang) => officerData.languages[lang])
+          .join(", ");
       }
 
       const generateEmployeeId = () => {
@@ -1173,12 +1221,14 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           db.plantcare.query(getLatestIdQuery, (err, results) => {
             if (err) {
               console.error("Error getting latest employee ID:", err.message);
-              return reject(new Error("Database error while generating employee ID"));
+              return reject(
+                new Error("Database error while generating employee ID"),
+              );
             }
             let nextNumber = 1;
             if (results.length > 0) {
               const latestEmpId = results[0].empId;
-              if (latestEmpId && latestEmpId.startsWith('FIO')) {
+              if (latestEmpId && latestEmpId.startsWith("FIO")) {
                 const numberPart = latestEmpId.substring(3);
                 const currentNumber = parseInt(numberPart, 10);
                 if (!isNaN(currentNumber)) {
@@ -1186,7 +1236,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
                 }
               }
             }
-            const formattedNumber = nextNumber.toString().padStart(5, '0');
+            const formattedNumber = nextNumber.toString().padStart(5, "0");
             const newEmpId = `FIO${formattedNumber}`;
 
             resolve(newEmpId);
@@ -1206,7 +1256,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         profileUrl = await uploadFileToS3(
           files.profile[0].buffer,
           files.profile[0].originalname,
-          'field-officer/profile'
+          "field-officer/profile",
         );
       }
 
@@ -1214,7 +1264,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         frontNicUrl = await uploadFileToS3(
           files.frontNic[0].buffer,
           files.frontNic[0].originalname,
-          'field-officer/front-nic'
+          "field-officer/front-nic",
         );
       }
 
@@ -1222,7 +1272,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         backNicUrl = await uploadFileToS3(
           files.backNic[0].buffer,
           files.backNic[0].originalname,
-          'field-officer/back-nic'
+          "field-officer/back-nic",
         );
       }
 
@@ -1230,7 +1280,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         backPassbookUrl = await uploadFileToS3(
           files.backPassbook[0].buffer,
           files.backPassbook[0].originalname,
-          'field-officer/passbooks'
+          "field-officer/passbooks",
         );
       }
 
@@ -1238,7 +1288,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         contractUrl = await uploadFileToS3(
           files.contract[0].buffer,
           files.contract[0].originalname,
-          'field-officer/contracts'
+          "field-officer/contracts",
         );
       }
 
@@ -1253,16 +1303,22 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           officerData.nic,
           officerData.email,
           officerData.phoneCode1,
-          officerData.phoneNumber1
+          officerData.phoneNumber1,
         ],
         (checkErr, checkResults) => {
           if (checkErr) {
             console.error("Database check error:", checkErr.message);
-            return reject(new Error("Database error while checking existing records"));
+            return reject(
+              new Error("Database error while checking existing records"),
+            );
           }
 
           if (checkResults.length > 0) {
-            return reject(new Error("Officer with this NIC, email or phone number already exists"));
+            return reject(
+              new Error(
+                "Officer with this NIC, email or phone number already exists",
+              ),
+            );
           }
 
           // Prepare SQL query - UPDATED with correct number of placeholders (35)
@@ -1279,8 +1335,8 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           const values = [
             irmId,
             officerData.empType,
-            empId, // Auto-generated employee ID
-            jobRole, // Always "Field Officer"
+            empId, 
+            jobRole, 
             languageString,
             assignDistrictString,
             officerData.firstName,
@@ -1311,7 +1367,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
             backNicUrl,
             backPassbookUrl,
             contractUrl,
-            'Not Approved'
+            "Not Approved",
           ];
 
           db.plantcare.query(sql, values, (err, results) => {
@@ -1320,8 +1376,10 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
               console.error("SQL:", sql);
               console.error("Values count:", values.length);
 
-              if (err.code === 'ER_DUP_ENTRY') {
-                return reject(new Error("Officer with this NIC or email already exists"));
+              if (err.code === "ER_DUP_ENTRY") {
+                return reject(
+                  new Error("Officer with this NIC or email already exists"),
+                );
               }
 
               return reject(new Error("Database error: " + err.message));
@@ -1334,12 +1392,11 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
               id: results.insertId,
               empId: empId,
               jobRole: jobRole,
-              message: "Field officer created successfully."
+              message: "Field officer created successfully.",
             });
           });
-        }
+        },
       );
-
     } catch (error) {
       console.error("Error in createFieldOfficer:", error);
       reject(error);
@@ -1347,7 +1404,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
   });
 };
 
-// Check existing NIC
+// Check Existing NIC
 exports.checkNicExists = async (nic) => {
   return new Promise((resolve, reject) => {
     const sql = `SELECT id FROM feildofficer WHERE nic = ?`;
@@ -1363,7 +1420,7 @@ exports.checkNicExists = async (nic) => {
   });
 };
 
-// Check existing email
+// Check Existing Email
 exports.checkEmailExists = async (email) => {
   return new Promise((resolve, reject) => {
     const sql = `SELECT id FROM feildofficer WHERE email = ?`;
@@ -1379,6 +1436,7 @@ exports.checkEmailExists = async (email) => {
   });
 };
 
+// Check Existing Phone
 exports.checkPhoneExists = async (phoneCode, phoneNumber) => {
   return new Promise((resolve, reject) => {
     const sql = `
@@ -1387,12 +1445,16 @@ exports.checkPhoneExists = async (phoneCode, phoneNumber) => {
             WHERE (phoneCode1 = ? AND phoneNumber1 = ?)
                OR (phoneCode2 = ? AND phoneNumber2 = ?)
         `;
-    db.plantcare.query(sql, [phoneCode, phoneNumber, phoneCode, phoneNumber], (err, results) => {
-      if (err) {
-        console.error("Database error:", err.message);
-        return reject(new Error("Database error"));
-      }
-      resolve(results.length > 0);
-    });
+    db.plantcare.query(
+      sql,
+      [phoneCode, phoneNumber, phoneCode, phoneNumber],
+      (err, results) => {
+        if (err) {
+          console.error("Database error:", err.message);
+          return reject(new Error("Database error"));
+        }
+        resolve(results.length > 0);
+      },
+    );
   });
 };

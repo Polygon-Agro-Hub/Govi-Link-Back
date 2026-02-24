@@ -187,7 +187,7 @@ exports.getassignofficerlistDAO = async (officerId, currentDate, jobId) => {
 
         if (officerResults.length === 0) {
           return reject(
-            new Error("No field officer found with the provided ID")
+            new Error("No field officer found with the provided ID"),
           );
         }
 
@@ -316,7 +316,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
   propose,
   fieldAuditIds = [],
   govilinkJobIds = [],
-  auditType
+  auditType,
 ) => {
   return new Promise((resolve, reject) => {
     let connection;
@@ -335,7 +335,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
         if (transactionErr) {
           connection.release();
           return reject(
-            new Error("Transaction error: " + transactionErr.message)
+            new Error("Transaction error: " + transactionErr.message),
           );
         }
         const verifyOfficerSql = `SELECT id, status FROM feildofficer WHERE id = ? AND status = 'Approved'`;
@@ -347,7 +347,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
             if (err) {
               return rollback(
                 connection,
-                "Database error verifying officer: " + err.message
+                "Database error verifying officer: " + err.message,
               );
             }
 
@@ -361,7 +361,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 fieldAuditIds,
                 formattedDate,
                 propose,
-                assignedBy
+                assignedBy,
               );
             } else if (auditType === "govilinkjobs") {
               updateGovilinkJobs(
@@ -371,12 +371,12 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 currentTimestamp,
                 formattedDate,
                 propose,
-                assignedBy
+                assignedBy,
               );
             } else {
               return rollback(connection, "Invalid auditType: " + auditType);
             }
-          }
+          },
         );
       });
     });
@@ -387,7 +387,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
       fieldAuditIds,
       scheduleDate,
       proposeType,
-      assignedBy
+      assignedBy,
     ) {
       const checkFieldAuditsSql = `
         SELECT id, jobId, assignOfficerId, status 
@@ -399,7 +399,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
         if (err) {
           return rollback(
             conn,
-            "Database error checking field audits: " + err.message
+            "Database error checking field audits: " + err.message,
           );
         }
 
@@ -410,20 +410,20 @@ exports.assignOfficerToFieldAuditsDAO = async (
         // Check if any audits are already assigned to other officers
         const alreadyAssignedToOthers = auditResults.filter(
           (audit) =>
-            audit.assignOfficerId && audit.assignOfficerId !== assignOfficerId
+            audit.assignOfficerId && audit.assignOfficerId !== assignOfficerId,
         );
 
         if (alreadyAssignedToOthers.length > 0) {
           console.log(
-            `Reassigning ${alreadyAssignedToOthers.length} field audits from other officers to officer ${assignOfficerId}:`
+            `Reassigning ${alreadyAssignedToOthers.length} field audits from other officers to officer ${assignOfficerId}:`,
           );
           console.log(
             alreadyAssignedToOthers
               .map(
                 (a) =>
-                  `ID: ${a.id}, Job: ${a.jobId}, Previously assigned to: ${a.assignOfficerId}`
+                  `ID: ${a.id}, Job: ${a.jobId}, Previously assigned to: ${a.assignOfficerId}`,
               )
-              .join(", ")
+              .join(", "),
           );
         }
 
@@ -444,7 +444,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
             if (err) {
               return rollback(
                 conn,
-                "Database error updating field audits: " + err.message
+                "Database error updating field audits: " + err.message,
               );
             }
 
@@ -459,9 +459,9 @@ exports.assignOfficerToFieldAuditsDAO = async (
               updatedAuditResults,
               updateResults.affectedRows,
               "feildaudits",
-              proposeType
+              proposeType,
             );
-          }
+          },
         );
       });
     }
@@ -471,7 +471,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
       govilinkJobIds,
       currentTimestamp,
       scheduleDate,
-      proposeType
+      proposeType,
     ) {
       const checkGovilinkJobsSql = `
         SELECT gj.id
@@ -483,7 +483,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
         if (err) {
           return rollback(
             conn,
-            "Database error checking govilink jobs: " + err.message
+            "Database error checking govilink jobs: " + err.message,
           );
         }
 
@@ -499,7 +499,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
           jobResults,
           scheduleDate,
           proposeType,
-          assignedBy
+          assignedBy,
         );
       });
     }
@@ -511,7 +511,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
       currentTimestamp,
       jobResults,
       scheduleDate,
-      proposeType
+      proposeType,
     ) {
       const checkExistingAssignmentsSql = `
         SELECT jobId, officerId
@@ -526,16 +526,16 @@ exports.assignOfficerToFieldAuditsDAO = async (
           if (err) {
             return rollback(
               conn,
-              "Database error checking existing assignments: " + err.message
+              "Database error checking existing assignments: " + err.message,
             );
           }
 
           const existingJobIds = existingAssignments.map(
-            (assignment) => assignment.jobId
+            (assignment) => assignment.jobId,
           );
 
           const newJobIds = govilinkJobIds.filter(
-            (jobId) => !existingJobIds.includes(jobId)
+            (jobId) => !existingJobIds.includes(jobId),
           );
 
           let totalAffectedRows = 0;
@@ -557,14 +557,14 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     reject(
                       new Error(
                         "Database error deactivating existing assignments: " +
-                        err.message
-                      )
+                          err.message,
+                      ),
                     );
                   } else {
                     totalAffectedRows += deactivateResults.affectedRows;
                     resolve(deactivateResults);
                   }
-                }
+                },
               );
             });
             allPromises.push(deactivatePromise);
@@ -590,14 +590,14 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     reject(
                       new Error(
                         "Database error inserting reassigned assignments: " +
-                        err.message
-                      )
+                          err.message,
+                      ),
                     );
                   } else {
                     totalAffectedRows += insertResults.affectedRows;
                     resolve(insertResults);
                   }
-                }
+                },
               );
             });
             allPromises.push(insertReassignedPromise);
@@ -619,14 +619,14 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 if (err) {
                   reject(
                     new Error(
-                      "Database error updating govilink jobs: " + err.message
-                    )
+                      "Database error updating govilink jobs: " + err.message,
+                    ),
                   );
                 } else {
                   totalAffectedRows += updateResults.affectedRows;
                   resolve(updateResults);
                 }
-              }
+              },
             );
           });
           allPromises.push(updateGovilinkPromise);
@@ -638,14 +638,14 @@ exports.assignOfficerToFieldAuditsDAO = async (
                 jobResults,
                 totalAffectedRows,
                 "jobassignofficer and govilinkjobs",
-                proposeType
+                proposeType,
               );
             })
             .catch((error) => {
               console.error("Error in Promise.all:", error);
               return rollback(conn, error.message);
             });
-        }
+        },
       );
     }
 
@@ -654,13 +654,13 @@ exports.assignOfficerToFieldAuditsDAO = async (
       results,
       affectedRows,
       tableName,
-      proposeType
+      proposeType,
     ) {
       conn.commit((commitErr) => {
         if (commitErr) {
           return rollback(
             conn,
-            "Transaction commit error: " + commitErr.message
+            "Transaction commit error: " + commitErr.message,
           );
         }
         conn.release();

@@ -13,12 +13,12 @@ exports.saveProblem = (data) => {
       [govilinkjobid, farmerFeedback, advice, imageUrl],
       (err, result) => {
         if (err) {
-          console.error("❌ Database error (insert problem):", err.message);
+          console.error("Database error (insert problem):", err.message);
           return reject(new Error("Database error while saving problem"));
         }
 
         if (result.affectedRows === 0) {
-          console.warn("⚠️ Problem insert failed:", data);
+          console.warn("Problem insert failed:", data);
           return reject(new Error("Problem not saved"));
         }
 
@@ -68,7 +68,7 @@ exports.setsaveidentifyProblem = async (payload) => {
 
     db.plantcare.query(insertSql, [govilinkjobid, problem, solution], (err, result) => {
       if (err) {
-        console.error("❌ DB error inserting problem:", err.message);
+        console.error("DB error inserting problem:", err.message);
         return reject(new Error("Database error while saving problem"));
       }
 
@@ -89,7 +89,7 @@ exports.getidentifyProblemsSolutionsById = async (id) => {
 
     db.plantcare.query(sql, [id], (err, results) => {
       if (err) {
-        console.error("❌ DB error fetching problems:", err.message);
+        console.error("DB error fetching problems:", err.message);
         return reject(new Error("Database error while fetching problems"));
       }
       resolve(results);
@@ -102,7 +102,7 @@ exports.updateidentifyProblem = async (id, payload) => {
     const { problem, solution } = payload;
 
     if (!id) {
-      console.error("❌ Missing id or officerId");
+      console.error("Missing id or officerId");
       return reject(new Error("Invalid input"));
     }
 
@@ -114,7 +114,7 @@ exports.updateidentifyProblem = async (id, payload) => {
 
     db.plantcare.query(updateSql, [problem, solution, id], (err, result) => {
       if (err) {
-        console.error("❌ DB error updating problem:", err.message);
+        console.error("DB error updating problem:", err.message);
         return reject(new Error("Database error while updating problem"));
       }
 
@@ -137,7 +137,7 @@ exports.setcomplete = async (id) => {
 
     db.plantcare.query(sql, [id], (err, result) => {
       if (err) {
-        console.error("❌ Database error:", err);
+        console.error("Database error:", err);
         return reject(err);
       }
 

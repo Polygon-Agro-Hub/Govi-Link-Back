@@ -1,7 +1,7 @@
 const requestAuditDao = require("../dao/requestAudit-dao");
 const asyncHandler = require("express-async-handler");
-const uploadFileToR2 = require('../Middlewares/s3upload');
-const delectfilesOnR2 = require('../Middlewares/s3delete')
+const uploadFileToR2 = require("../Middlewares/s3upload");
+const delectfilesOnR2 = require("../Middlewares/s3delete");
 
 exports.setsaveProblem = async (req, res) => {
   try {
@@ -17,7 +17,11 @@ exports.setsaveProblem = async (req, res) => {
     let imageUrl = null;
     if (req.file) {
       const fileName = Date.now() + "-" + req.file.originalname;
-      const uploadedImage = await uploadFileToR2(req.file.buffer, fileName, `govilink/requestproblem`);
+      const uploadedImage = await uploadFileToR2(
+        req.file.buffer,
+        fileName,
+        `govilink/requestproblem`,
+      );
       imageUrl = uploadedImage;
     }
 
@@ -33,7 +37,7 @@ exports.setsaveProblem = async (req, res) => {
       message: "Problem and solution saved successfully.",
     });
   } catch (err) {
-    console.error("❌ Error saving problem:", err);
+    console.error("Error saving problem:", err);
     res.status(500).json({
       success: false,
       message: "Internal server error.",
@@ -49,10 +53,14 @@ exports.getProblemsByJobId = async (req, res) => {
     if (problem) {
       res.json({ success: true, data: problem });
     } else {
-      res.json({ success: true, data: null, message: "No problem found for this job." });
+      res.json({
+        success: true,
+        data: null,
+        message: "No problem found for this job.",
+      });
     }
   } catch (err) {
-    console.error("❌ Error fetching problem:", err);
+    console.error("Error fetching problem:", err);
     res.status(500).json({ success: false, message: "Server error" });
   }
 };
@@ -64,7 +72,9 @@ exports.updateProblemById = async (req, res) => {
     let image = null;
 
     const existingProblem = await requestAuditDao.getProblemsByJobId(id);
-    const existingTaskImage = existingProblem?.image ? { uploadImage: existingProblem.image } : null;
+    const existingTaskImage = existingProblem?.image
+      ? { uploadImage: existingProblem.image }
+      : null;
 
     if (req.file) {
       if (existingTaskImage?.uploadImage) {
@@ -72,7 +82,11 @@ exports.updateProblemById = async (req, res) => {
       }
 
       const fileName = Date.now() + "-" + req.file.originalname;
-      const uploadedImage = await uploadFileToR2(req.file.buffer, fileName, `govilink/requestproblem`);
+      const uploadedImage = await uploadFileToR2(
+        req.file.buffer,
+        fileName,
+        `govilink/requestproblem`,
+      );
       image = uploadedImage;
     }
 
@@ -88,7 +102,7 @@ exports.updateProblemById = async (req, res) => {
       message: "Problem and solution updated successfully.",
     });
   } catch (err) {
-    console.error("❌ Error updating problem:", err);
+    console.error("Error updating problem:", err);
     res.status(500).json({
       success: false,
       message: "Internal server error.",
@@ -107,7 +121,7 @@ exports.setsaveidentifyProblem = asyncHandler(async (req, res) => {
       id,
     });
   } catch (error) {
-    console.error("❌ Error in setsaveProblem:", error.message);
+    console.error("Error in setsaveProblem:", error.message);
 
     return res.status(500).json({
       success: false,
@@ -127,7 +141,7 @@ exports.getidentifyProblemsSolutionsById = asyncHandler(async (req, res) => {
       data: problems,
     });
   } catch (error) {
-    console.error("❌ Error in getProblemsBySlaveId:", error.message);
+    console.error("Error in getProblemsBySlaveId:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch problems",
@@ -140,7 +154,10 @@ exports.updateidentifyProblem = asyncHandler(async (req, res) => {
   const payload = req.body;
 
   try {
-    const { id: updatedId } = await requestAuditDao.updateidentifyProblem(id, payload);
+    const { id: updatedId } = await requestAuditDao.updateidentifyProblem(
+      id,
+      payload,
+    );
 
     return res.status(200).json({
       success: true,
@@ -148,7 +165,7 @@ exports.updateidentifyProblem = asyncHandler(async (req, res) => {
       id: updatedId,
     });
   } catch (error) {
-    console.error("❌ Error in updateProblem:", error.message);
+    console.error("Error in updateProblem:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to update problem",
@@ -173,7 +190,7 @@ exports.setcomplete = asyncHandler(async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("❌ Error in setcomplete controller:", error.message);
+    console.error("Error in setcomplete controller:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Server error while updating audit",

@@ -10,14 +10,14 @@ exports.getVisitsbydate = asyncHandler(async (req, res) => {
     const visitsByDate = await assignJobsdao.getVisitsbydate(
       officerId,
       date,
-      isOverdueSelected
+      isOverdueSelected,
     );
     res.status(200).json({
       status: "success",
       data: visitsByDate,
     });
   } catch (error) {
-    console.error("❌ Error fetching visits by date:", error.message);
+    console.error("Error fetching visits by date:", error.message);
     res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch visits by date",
@@ -34,7 +34,7 @@ exports.getassignofficerlist = asyncHandler(async (req, res) => {
     const irmUsers = await assignJobsdao.getassignofficerlistDAO(
       officerId,
       currentDate,
-      jobId
+      jobId,
     );
     res.status(200).json({
       status: "success",
@@ -88,7 +88,7 @@ exports.assignOfficerToFieldAudits = asyncHandler(async (req, res) => {
       propose,
       fieldAuditIds || [],
       govilinkJobIds || [],
-      auditType
+      auditType,
     );
 
     res.status(200).json({

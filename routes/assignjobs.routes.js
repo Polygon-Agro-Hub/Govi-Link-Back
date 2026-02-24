@@ -3,7 +3,6 @@ const router = express.Router();
 const auth = require('../Middlewares/auth.middleware');
 const assignJobsEp = require('../end-point/assignJobs-ep');
 
-
 router.get('/visits/:date',auth, assignJobsEp.getVisitsbydate);
 
 router.get('/get-assign-officer-list/:jobId/:date', auth, assignJobsEp.getassignofficerlist);

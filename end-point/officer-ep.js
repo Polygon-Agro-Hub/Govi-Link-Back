@@ -1,13 +1,16 @@
 const officerDao = require("../dao/officer-dao");
 const asyncHandler = require("express-async-handler");
-const uploadFileToR2 = require('../Middlewares/s3upload');
-const delectfilesOnR2 = require('../Middlewares/s3delete');
-const { createFieldOfficerSchema } = require("../Validations/officer-validation");
+const uploadFileToR2 = require("../Middlewares/s3upload");
+const delectfilesOnR2 = require("../Middlewares/s3delete");
+const {
+  createFieldOfficerSchema,
+} = require("../Validations/officer-validation");
 
 exports.getVisits = asyncHandler(async (req, res) => {
   const officerId = req.user.id;
   try {
-    const { visits, draftVisits } = await officerDao.getOfficerVisitsCombined(officerId);
+    const { visits, draftVisits } =
+      await officerDao.getOfficerVisitsCombined(officerId);
     res.status(200).json({
       status: "success",
       data: {
@@ -16,7 +19,7 @@ exports.getVisits = asyncHandler(async (req, res) => {
       },
     });
   } catch (error) {
-    console.error("❌ Error fetching visits:", error.message);
+    console.error("Error fetching visits:", error.message);
     res.status(500).json({
       status: "error",
       message: error.message || "Failed to fetch visits",
@@ -32,10 +35,8 @@ exports.getOfficerVisits = asyncHandler(async (req, res) => {
       status: "success",
       data: officerVisits,
     });
-  }
-  catch {
-  }
-})
+  } catch {}
+});
 
 exports.getOfficerVisitsDraft = asyncHandler(async (req, res) => {
   const officerId = req.user?.id;
@@ -56,10 +57,10 @@ exports.getOfficerVisitsDraft = asyncHandler(async (req, res) => {
     res.status(200).json({
       status: "success",
       message: "Officer draft visit data retrieved successfully",
-      data: draftVisits
+      data: draftVisits,
     });
   } catch (error) {
-    console.error("❌ Error fetching officer visits draft:", error.message);
+    console.error("Error fetching officer visits draft:", error.message);
     res.status(500).json({
       status: "error",
       message: error.message || "Failed to fetch officer visits draft",
@@ -78,9 +79,17 @@ exports.getindividualauditsquestions = asyncHandler(async (req, res) => {
     });
   }
   try {
-    const individualauditsquestions = await officerDao.getindividualauditsquestions(certificationpaymentId, farmId, clusterId);
+    const individualauditsquestions =
+      await officerDao.getindividualauditsquestions(
+        certificationpaymentId,
+        farmId,
+        clusterId,
+      );
 
-    if (!individualauditsquestions || !individualauditsquestions.questions?.length) {
+    if (
+      !individualauditsquestions ||
+      !individualauditsquestions.questions?.length
+    ) {
       return res.status(404).json({
         status: "error",
         message: "No questions found for this certification payment",
@@ -92,9 +101,8 @@ exports.getindividualauditsquestions = asyncHandler(async (req, res) => {
       message: "Individual audit questions fetched successfully",
       data: individualauditsquestions,
     });
-
   } catch (error) {
-    console.error("❌ Error fetching audit questions:", error.message);
+    console.error("Error fetching audit questions:", error.message);
 
     res.status(500).json({
       status: "error",
@@ -129,7 +137,7 @@ exports.setCheckQuestions = asyncHandler(async (req, res) => {
       officerTickResult,
     });
   } catch (error) {
-    console.error("❌ Error in setCheckQuestions:", error.message);
+    console.error("Error in setCheckQuestions:", error.message);
 
     return res.status(500).json({
       success: false,
@@ -151,7 +159,7 @@ exports.setCheckPhotoProof = asyncHandler(async (req, res) => {
     if (existingTaskImage?.uploadImage) {
       await delectfilesOnR2(existingTaskImage.uploadImage);
     } else {
-      console.log("ℹ️ No existing task image found");
+      console.log("No existing task image found");
     }
     let taskImageUrl = null;
 
@@ -159,7 +167,11 @@ exports.setCheckPhotoProof = asyncHandler(async (req, res) => {
       const fileName = req.file.originalname;
       const imageBuffer = req.file.buffer;
 
-      const uploadedImage = await uploadFileToR2(imageBuffer, fileName, `govilink/task`);
+      const uploadedImage = await uploadFileToR2(
+        imageBuffer,
+        fileName,
+        `govilink/task`,
+      );
       taskImageUrl = uploadedImage;
     }
     await officerDao.setCheckPhotoProof(id, taskImageUrl);
@@ -170,7 +182,7 @@ exports.setCheckPhotoProof = asyncHandler(async (req, res) => {
       imageUrl: taskImageUrl,
     });
   } catch (error) {
-    console.error("❌ Error in setCheckPhotoProof:", error.message);
+    console.error("Error in setCheckPhotoProof:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to update photo proof",
@@ -185,10 +197,12 @@ exports.removePhotoProof = asyncHandler(async (req, res) => {
   if (existingTaskImage?.uploadImage) {
     await delectfilesOnR2(existingTaskImage.uploadImage);
   } else {
-    console.log("ℹ️ No existing task image found");
+    console.log("No existing task image found");
   }
   await officerDao.clearPhotoProofImage(id);
-  res.status(200).json({ success: true, message: "Photo proof removed successfully" });
+  res
+    .status(200)
+    .json({ success: true, message: "Photo proof removed successfully" });
 });
 
 exports.setsaveProblem = asyncHandler(async (req, res) => {
@@ -204,7 +218,7 @@ exports.setsaveProblem = asyncHandler(async (req, res) => {
       id,
     });
   } catch (error) {
-    console.error("❌ Error in setsaveProblem:", error.message);
+    console.error("Error in setsaveProblem:", error.message);
 
     return res.status(500).json({
       success: false,
@@ -225,7 +239,7 @@ exports.getProblemsSolutionsById = asyncHandler(async (req, res) => {
       data: problems,
     });
   } catch (error) {
-    console.error("❌ Error in getProblemsBySlaveId:", error.message);
+    console.error("Error in getProblemsBySlaveId:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch problems",
@@ -246,7 +260,7 @@ exports.updateProblem = asyncHandler(async (req, res) => {
       id: updatedId,
     });
   } catch (error) {
-    console.error("❌ Error in updateProblem:", error.message);
+    console.error("Error in updateProblem:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Failed to update problem",
@@ -273,7 +287,7 @@ exports.setcomplete = asyncHandler(async (req, res) => {
       });
     }
   } catch (error) {
-    console.error("❌ Error in setcomplete controller:", error.message);
+    console.error("Error in setcomplete controller:", error.message);
     return res.status(500).json({
       success: false,
       message: error.message || "Server error while updating audit",
@@ -286,13 +300,17 @@ exports.getVisitsbydate = asyncHandler(async (req, res) => {
   const { date } = req.params;
   const { isOverdueSelected } = req.query;
   try {
-    const visitsByDate = await officerDao.getVisitsbydate(officerId, date, isOverdueSelected);
+    const visitsByDate = await officerDao.getVisitsbydate(
+      officerId,
+      date,
+      isOverdueSelected,
+    );
     res.status(200).json({
       status: "success",
       data: visitsByDate,
     });
   } catch (error) {
-    console.error("❌ Error fetching visits by date:", error.message);
+    console.error("Error fetching visits by date:", error.message);
     res.status(500).json({
       success: false,
       message: error.message || "Failed to fetch visits by date",
@@ -302,20 +320,20 @@ exports.getVisitsbydate = asyncHandler(async (req, res) => {
 
 exports.getFieldOfficers = asyncHandler(async (req, res) => {
   const irmId = req.user.id;
-  const search = req.query.search || '';
+  const search = req.query.search || "";
   try {
     const fieldOfficers = await officerDao.getFieldOfficers(irmId, search);
 
     res.status(200).json({
       status: "success",
       data: fieldOfficers.data,
-      count: fieldOfficers.count
+      count: fieldOfficers.count,
     });
   } catch (error) {
-    console.error('Error in getFieldOfficers:', error);
+    console.error("Error in getFieldOfficers:", error);
     res.status(500).json({
       status: "error",
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -326,18 +344,18 @@ exports.createFieldOfficer = asyncHandler(async (req, res) => {
   const files = req.files || {};
 
   try {
-    if (typeof officerData.assignDistrict === 'string') {
+    if (typeof officerData.assignDistrict === "string") {
       try {
         officerData.assignDistrict = JSON.parse(officerData.assignDistrict);
       } catch (error) {
-        console.log('assignDistrict is not JSON, using as is');
+        console.log("assignDistrict is not JSON, using as is");
       }
     }
     const { error, value } = createFieldOfficerSchema.validate(officerData);
     if (error) {
       return res.status(400).json({
         status: "error",
-        message: error.details[0].message
+        message: error.details[0].message,
       });
     }
     const result = await officerDao.createFieldOfficer(irmId, value, files);
@@ -345,13 +363,13 @@ exports.createFieldOfficer = asyncHandler(async (req, res) => {
     res.status(201).json({
       status: "success",
       message: "Field officer created successfully",
-      data: result
+      data: result,
     });
   } catch (error) {
-    console.error('Error in createFieldOfficer:', error);
+    console.error("Error in createFieldOfficer:", error);
     res.status(500).json({
       status: "error",
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -363,13 +381,13 @@ exports.checkNicExists = asyncHandler(async (req, res) => {
     const exists = await officerDao.checkNicExists(nic);
     res.status(200).json({
       status: "success",
-      exists: exists
+      exists: exists,
     });
   } catch (error) {
-    console.error('Error checking NIC:', error);
+    console.error("Error checking NIC:", error);
     res.status(500).json({
       status: "error",
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -381,13 +399,13 @@ exports.checkEmailExists = asyncHandler(async (req, res) => {
     const exists = await officerDao.checkEmailExists(email);
     res.status(200).json({
       status: "success",
-      exists: exists
+      exists: exists,
     });
   } catch (error) {
-    console.error('Error checking email:', error);
+    console.error("Error checking email:", error);
     res.status(500).json({
       status: "error",
-      message: error.message
+      message: error.message,
     });
   }
 });
@@ -398,13 +416,13 @@ exports.checkPhoneExists = asyncHandler(async (req, res) => {
     const exists = await officerDao.checkPhoneExists(phoneCode, phoneNumber);
     res.status(200).json({
       status: "success",
-      exists: exists
+      exists: exists,
     });
   } catch (error) {
-    console.error('Error checking phone:', error);
+    console.error("Error checking phone:", error);
     res.status(500).json({
       status: "error",
-      message: error.message
+      message: error.message,
     });
   }
-})
+});

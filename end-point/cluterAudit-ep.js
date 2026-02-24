@@ -2,7 +2,7 @@ const clusteAuditdao = require("../dao/cluterAudit-dao");
 const asyncHandler = require("express-async-handler");
 
 exports.getclusterVisits = asyncHandler(async (req, res) => {
-  const feildauditId = req.params.id
+  const feildauditId = req.params.id;
   try {
     const clusterVisits = await clusteAuditdao.getclusterVisits(feildauditId);
 
@@ -10,15 +10,14 @@ exports.getclusterVisits = asyncHandler(async (req, res) => {
       status: "success",
       data: clusterVisits,
     });
-  }
-  catch (error) {
+  } catch (error) {
     console.error("Error fetching cluster visits:", error);
     res.status(500).json({
       status: "error",
       message: error.message,
     });
   }
-})
+});
 
 exports.UpdateStatus = asyncHandler(async (req, res) => {
   const feildauditId = req.params.id;
@@ -39,4 +38,3 @@ exports.UpdateStatus = asyncHandler(async (req, res) => {
     });
   }
 });
-

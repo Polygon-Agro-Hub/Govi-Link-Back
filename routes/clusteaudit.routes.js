@@ -3,7 +3,6 @@ const router = express.Router();
 const auth = require('../Middlewares/auth.middleware');
 const cluterAuditEp = require('../end-point/cluterAudit-ep');
 
-
 router.get('/cluster-visits/:id', auth, cluterAuditEp.getclusterVisits);
 
 router.post('/status/onGoing/:id', auth, cluterAuditEp.UpdateStatus);

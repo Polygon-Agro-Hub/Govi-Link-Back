@@ -1,4 +1,4 @@
-const db = require('../startup/database');
+const db = require("../startup/database");
 
 exports.getclusterVisits = async (feildauditId) => {
   return new Promise((resolve, reject) => {
@@ -68,28 +68,24 @@ exports.getclusterVisits = async (feildauditId) => {
   });
 };
 
-
-
 exports.UpdateStatus = async (feildauditId, jobId) => {
   return new Promise((resolve, reject) => {
     let sql;
     let tableName;
-    if (jobId && (jobId.startsWith('CA') || jobId.startsWith('FA'))) {
-
+    if (jobId && (jobId.startsWith("CA") || jobId.startsWith("FA"))) {
       sql = `
         UPDATE feildaudits 
         SET status = 'Ongoing', startDate = NOW() 
         WHERE id = ?
       `;
-      tableName = 'feildaudits';
-    } else if (jobId && jobId.startsWith('SR')) {
-
+      tableName = "feildaudits";
+    } else if (jobId && jobId.startsWith("SR")) {
       sql = `
         UPDATE govilinkjobs 
         SET status = 'Ongoing', startDate = NOW() 
         WHERE id = ?
       `;
-      tableName = 'govilinkjobs';
+      tableName = "govilinkjobs";
     } else {
       return reject(new Error("Invalid jobId format"));
     }

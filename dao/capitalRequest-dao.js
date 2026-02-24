@@ -58,37 +58,36 @@ exports.getCapitalRequestById = async (id) => {
   });
 };
 
-
 const VALID_TABLES = [
-  'inspectionpersonal',
-  'inspectionlabour',
-  'inspectionland',
-  'inspectionharveststorage',
-  'inspectioncropping',
-  'inspectionprofit',
-  'inspectionidproof',
-  'inspectioneconomical',
-  'inspectioncultivation',
-  'inspectioninvestment',
-  'inspectionfinance'
+  "inspectionpersonal",
+  "inspectionlabour",
+  "inspectionland",
+  "inspectionharveststorage",
+  "inspectioncropping",
+  "inspectionprofit",
+  "inspectionidproof",
+  "inspectioneconomical",
+  "inspectioncultivation",
+  "inspectioninvestment",
+  "inspectionfinance",
 ];
 
-const TABLE_FOREIGN_KEY = 'reqId';
+const TABLE_FOREIGN_KEY = "reqId";
 const FILE_UPLOAD_TABLES = {
-  'inspectionidproof': {
-    fields: ['frontImg', 'backImg'],
-    folder: 'inspection/idproof'
+  inspectionidproof: {
+    fields: ["frontImg", "backImg"],
+    folder: "inspection/idproof",
   },
-  'inspectionland': {
-    fields: ['images'],
-    folder: 'inspection/land',
-    isArray: true
+  inspectionland: {
+    fields: ["images"],
+    folder: "inspection/land",
+    isArray: true,
   },
-  'inspectioncultivation': {
-    fields: ['waterImage'],
-    folder: 'inspection/water',
-    isArray: true
-  }
+  inspectioncultivation: {
+    fields: ["waterImage"],
+    folder: "inspection/water",
+    isArray: true,
+  },
 };
 
 const isValidTable = (tableName) => {
@@ -102,11 +101,16 @@ exports.insertInspectionData = async (tableName, data) => {
 
   return new Promise((resolve, reject) => {
     const processedData = { ...data };
-    if (tableName === 'inspectionfinance') {
-      const jsonFields = ['assetsLand', 'assetsBuilding', 'assetsVehicle', 'assetsMachinery'];
-      jsonFields.forEach(field => {
+    if (tableName === "inspectionfinance") {
+      const jsonFields = [
+        "assetsLand",
+        "assetsBuilding",
+        "assetsVehicle",
+        "assetsMachinery",
+      ];
+      jsonFields.forEach((field) => {
         if (processedData[field]) {
-          if (typeof processedData[field] === 'string') {
+          if (typeof processedData[field] === "string") {
             try {
               const parsed = JSON.parse(processedData[field]);
               processedData[field] = JSON.stringify(parsed);
@@ -123,8 +127,8 @@ exports.insertInspectionData = async (tableName, data) => {
 
     const columns = Object.keys(processedData);
     const values = Object.values(processedData);
-    const placeholders = columns.map(() => '?').join(', ');
-    const columnNames = columns.map(col => `\`${col}\``).join(', ');
+    const placeholders = columns.map(() => "?").join(", ");
+    const columnNames = columns.map((col) => `\`${col}\``).join(", ");
 
     const query = `INSERT INTO \`${tableName}\` (${columnNames}) VALUES (${placeholders})`;
 
@@ -137,7 +141,7 @@ exports.insertInspectionData = async (tableName, data) => {
           success: true,
           insertId: results.insertId,
           tableName,
-          affectedRows: results.affectedRows
+          affectedRows: results.affectedRows,
         });
       }
     });
@@ -155,11 +159,16 @@ exports.updateInspectionData = async (tableName, reqId, data) => {
     delete updateData.id;
     delete updateData.createdAt;
 
-    if (tableName === 'inspectionfinance') {
-      const jsonFields = ['assetsLand', 'assetsBuilding', 'assetsVehicle', 'assetsMachinery'];
-      jsonFields.forEach(field => {
+    if (tableName === "inspectionfinance") {
+      const jsonFields = [
+        "assetsLand",
+        "assetsBuilding",
+        "assetsVehicle",
+        "assetsMachinery",
+      ];
+      jsonFields.forEach((field) => {
         if (updateData[field]) {
-          if (typeof updateData[field] === 'string') {
+          if (typeof updateData[field] === "string") {
             try {
               const parsed = JSON.parse(updateData[field]);
               updateData[field] = JSON.stringify(parsed);
@@ -178,10 +187,10 @@ exports.updateInspectionData = async (tableName, reqId, data) => {
     const values = Object.values(updateData);
 
     if (columns.length === 0) {
-      return reject(new Error('No data to update'));
+      return reject(new Error("No data to update"));
     }
 
-    const setClause = columns.map(col => `\`${col}\` = ?`).join(', ');
+    const setClause = columns.map((col) => `\`${col}\` = ?`).join(", ");
     values.push(reqId);
 
     const query = `UPDATE \`${tableName}\` SET ${setClause} WHERE ${TABLE_FOREIGN_KEY} = ?`;
@@ -195,7 +204,7 @@ exports.updateInspectionData = async (tableName, reqId, data) => {
           success: true,
           affectedRows: results.affectedRows,
           tableName,
-          changedRows: results.changedRows
+          changedRows: results.changedRows,
         });
       }
     });
@@ -245,13 +254,13 @@ exports.deleteAllInspectionData = async (reqId) => {
   return new Promise((resolve, reject) => {
     db.investments.getConnection((err, connection) => {
       if (err) {
-        console.error('❌ Error getting connection:', err);
+        console.error("❌ Error getting connection:", err);
         return reject(err);
       }
 
       connection.beginTransaction((transErr) => {
         if (transErr) {
-          console.error('❌ Error starting transaction:', transErr);
+          console.error("❌ Error starting transaction:", transErr);
           connection.release();
           return reject(transErr);
         }
@@ -272,7 +281,9 @@ exports.deleteAllInspectionData = async (reqId) => {
                   deletedTables.push(tableName);
                   totalDeleted += results.affectedRows;
                 } else {
-                  console.log(`ℹ️ No rows found in ${tableName} for reqId: ${reqId}`);
+                  console.log(
+                    `ℹ️ No rows found in ${tableName} for reqId: ${reqId}`,
+                  );
                 }
                 resolveDelete();
               }
@@ -288,7 +299,7 @@ exports.deleteAllInspectionData = async (reqId) => {
 
             connection.commit((commitErr) => {
               if (commitErr) {
-                console.error('❌ Error committing transaction:', commitErr);
+                console.error("❌ Error committing transaction:", commitErr);
                 return connection.rollback(() => {
                   connection.release();
                   reject(commitErr);
@@ -300,16 +311,16 @@ exports.deleteAllInspectionData = async (reqId) => {
               resolve({
                 success: true,
                 deletedTables,
-                totalDeleted
+                totalDeleted,
               });
             });
           } catch (deleteError) {
-            console.error('❌ Error during deletion:', deleteError);
+            console.error("❌ Error during deletion:", deleteError);
             connection.rollback(() => {
               connection.release();
               reject({
                 success: false,
-                error: deleteError.message
+                error: deleteError.message,
               });
             });
           }
@@ -323,7 +334,7 @@ exports.deleteAllInspectionData = async (reqId) => {
 
 exports.checkAllTablesHaveData = async (reqId) => {
   return new Promise((resolve, reject) => {
-    const checkPromises = VALID_TABLES.map(tableName => {
+    const checkPromises = VALID_TABLES.map((tableName) => {
       return new Promise((resolveCheck, rejectCheck) => {
         const query = `SELECT COUNT(*) AS count FROM \`${tableName}\` WHERE ${TABLE_FOREIGN_KEY} = ?`;
 
@@ -336,7 +347,7 @@ exports.checkAllTablesHaveData = async (reqId) => {
             resolveCheck({
               tableName,
               hasData,
-              count: results[0].count
+              count: results[0].count,
             });
           }
         });
@@ -344,13 +355,20 @@ exports.checkAllTablesHaveData = async (reqId) => {
     });
 
     Promise.all(checkPromises)
-      .then(results => {
-        const missingTables = results.filter(r => !r.hasData).map(r => r.tableName);
-        const completedTables = results.filter(r => r.hasData).map(r => r.tableName);
+      .then((results) => {
+        const missingTables = results
+          .filter((r) => !r.hasData)
+          .map((r) => r.tableName);
+        const completedTables = results
+          .filter((r) => r.hasData)
+          .map((r) => r.tableName);
         const allTablesHaveData = missingTables.length === 0;
 
         if (missingTables.length > 0) {
-          console.log(`❌ Missing tables (${missingTables.length}):`, missingTables);
+          console.log(
+            `❌ Missing tables (${missingTables.length}):`,
+            missingTables,
+          );
         }
 
         resolve({
@@ -360,11 +378,11 @@ exports.checkAllTablesHaveData = async (reqId) => {
           missingCount: missingTables.length,
           completedTables,
           missingTables,
-          details: results
+          details: results,
         });
       })
-      .catch(error => {
-        console.error('❌ Error checking tables:', error);
+      .catch((error) => {
+        console.error("❌ Error checking tables:", error);
         reject(error);
       });
   });
@@ -378,11 +396,11 @@ exports.updateAuditedDate = async (reqId) => {
       if (!dataCheck.allTablesHaveData) {
         return reject({
           success: false,
-          error: 'Incomplete inspection data',
-          message: `Missing data in ${dataCheck.missingCount} table(s): ${dataCheck.missingTables.join(', ')}`,
+          error: "Incomplete inspection data",
+          message: `Missing data in ${dataCheck.missingCount} table(s): ${dataCheck.missingTables.join(", ")}`,
           completedCount: dataCheck.completedCount,
           totalTables: dataCheck.totalTables,
-          missingTables: dataCheck.missingTables
+          missingTables: dataCheck.missingTables,
         });
       }
 
@@ -394,22 +412,22 @@ exports.updateAuditedDate = async (reqId) => {
 
       db.investments.query(query, [reqId], (error, results) => {
         if (error) {
-          console.error('❌ Error updating auditedDate:', error);
+          console.error("❌ Error updating auditedDate:", error);
           return reject(error);
         }
         if (results.affectedRows === 0) {
-          return reject(new Error('No request found with the given ID'));
+          return reject(new Error("No request found with the given ID"));
         }
         resolve({
           success: true,
           reqId: reqId,
           affectedRows: results.affectedRows,
           completedTables: dataCheck.completedTables,
-          totalTables: dataCheck.totalTables
+          totalTables: dataCheck.totalTables,
         });
       });
     } catch (error) {
-      console.error('❌ Error in updateAuditedDate:', error);
+      console.error("❌ Error in updateAuditedDate:", error);
       reject(error);
     }
   });
