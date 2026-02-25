@@ -1,341 +1,7 @@
-const uploadFileToS3 = require('../Middlewares/s3upload');
-const db = require('../startup/database');
-
-
-
-// exports.getOfficerVisitsCombined = async (officerId) => {
-//   console.log("Fetching all visits for Officer ID:", officerId);
-
-//   const query = (sql, params) =>
-//     new Promise((resolve, reject) => {
-//       db.plantcare.query(sql, params, (err, results) => {
-//         if (err) return reject(err);
-//         resolve(results);
-//       });
-//     });
-
-//   try {
-//     // ✅ Visits (Pending + Ongoing audits + govilink jobs)
-//     const visitsSql = `
-//       SELECT * FROM (
-//         SELECT 
-//           fau.jobId AS jobId,
-//           fau.id AS id,
-//           fau.propose AS propose,
-//           fau.status AS status,
-//           NULL AS serviceenglishName,
-//           NULL AS servicesinhalaName,
-//           NULL AS servicetamilName,
-//           "feildaudits" AS auditType,
-//           CASE 
-//             WHEN cp.userId IS NOT NULL THEN CONCAT(ps.firstName, ' ', ps.lastName)
-//             WHEN cp.clusterId IS NOT NULL THEN fc.clsName
-//             ELSE NULL
-//           END AS farmerName,
-//           CASE
-//             WHEN cp.userId IS NOT NULL THEN ps.phoneNumber
-//             ELSE NULL
-//           END AS farmerMobile,
-//           CASE 
-//             WHEN cp.userId IS NOT NULL THEN cp.userId
-//             ELSE NULL
-//           END AS farmerId,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN ocs.longitude
-//             ELSE NULL
-//           END AS longitude,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN ocs.latitude
-//             ELSE NULL
-//           END AS latitude,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN fcrop.district
-//             WHEN cp.payType = 'Farm' THEN ffarm.district
-//             ELSE NULL
-//           END AS district,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN fcrop.plotNo
-//             WHEN cp.payType = 'Farm' THEN ffarm.plotNo
-//             ELSE NULL
-//           END AS plotNo,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN fcrop.street
-//             WHEN cp.payType = 'Farm' THEN ffarm.street
-//             ELSE NULL
-//           END AS street,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN fcrop.city
-//             WHEN cp.payType = 'Farm' THEN ffarm.city
-//             ELSE NULL
-//           END AS city,
-//           CASE 
-//             WHEN cp.payType = 'Crop' THEN fcrop.id
-//             WHEN cp.payType = 'Farm' THEN ffarm.id
-//             ELSE NULL
-//           END AS farmId,
-//           cp.certificateId,
-//           cp.clusterId,
-//           cp.id AS certificationpaymentId,
-//           fau.sheduleDate AS sheduleDate,
-//           CASE 
-//             WHEN cp.clusterId IS NOT NULL THEN (
-//               SELECT COUNT(*)
-//               FROM feildauditcluster AS fauc
-//               WHERE fauc.feildAuditId = fau.id
-//               AND fauc.isCompleted = 1
-//             )
-//             ELSE NULL
-//           END AS completedClusterCount,
-//           CASE 
-//             WHEN cp.clusterId IS NOT NULL THEN (
-//               SELECT COUNT(*)
-//               FROM feildauditcluster AS fauc
-//               WHERE fauc.feildAuditId = fau.id
-//             )
-//             ELSE NULL
-//           END AS totalClusterCount,
-//           CASE 
-//             WHEN cp.clusterId IS NOT NULL THEN (
-//               SELECT ROUND(
-//                 (COUNT(CASE WHEN fauc.isCompleted = 1 THEN 1 END) / COUNT(*)) * 100, 0
-//               )
-//               FROM feildauditcluster AS fauc
-//               WHERE fauc.feildAuditId = fau.id
-//             )
-//             WHEN cp.userId IS NOT NULL THEN (
-//               CASE 
-//                 WHEN EXISTS (
-//                   SELECT 1
-//                   FROM slavequestionnaire AS sq
-//                   LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-//                   WHERE sq.crtPaymentId = cp.id
-//                     AND (slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> ''))
-//                 ) THEN 30
-//                 ELSE 0
-//               END
-//             )
-//             ELSE 0
-//           END AS completionPercentage
-//         FROM feildaudits AS fau
-//         LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
-//         LEFT JOIN users AS ps ON cp.userId = ps.id
-//         LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
-//         LEFT JOIN certificationpaymentcrop AS cpc ON cp.id = cpc.paymentId
-//         LEFT JOIN certificationpaymentfarm AS cpf ON cp.id = cpf.paymentId
-//         LEFT JOIN ongoingcultivationscrops AS ocs ON cpc.cropId = ocs.id
-//         LEFT JOIN farms AS fcrop ON ocs.farmId = fcrop.id
-//         LEFT JOIN farms AS ffarm ON cpf.farmId = ffarm.id
-//         WHERE fau.assignOfficerId = ?
-//           AND DATE(fau.sheduleDate) = CURDATE()
-//           AND (fau.status = 'Pending' OR fau.status = 'Ongoing')
-//           AND (
-//             cp.clusterId IS NOT NULL
-//             OR NOT EXISTS (
-//               SELECT 1
-//               FROM slavequestionnaire AS sq
-//               LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-//               WHERE sq.crtPaymentId = cp.id
-//                 AND (slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> ''))
-//             )
-//           )
-
-//         UNION ALL
-
-//         SELECT 
-//           glj.jobId AS jobId,
-//           glj.id AS id,
-//           "Requested" AS propose,
-//           glj.status AS status,
-//           os.englishName AS serviceenglishName,
-//           os.sinhalaName AS servicesinhalaName,
-//           os.tamilName AS servicetamilName,
-//           "govilinkjobs" AS auditType,
-//           CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
-//           ps2.phoneNumber AS farmerMobile,
-//           ps2.id AS farmerId,
-//           NULL AS longitude,
-//           NULL AS latitude,
-//           f.district,
-//           f.plotNo,
-//           f.street,
-//           f.city,
-//           f.id AS farmId,
-//           NULL AS certificateId,
-//           NULL AS clusterId,
-//           NULL AS certificationpaymentId,
-//           glj.sheduleDate AS sheduleDate,
-//           NULL AS completedClusterCount,
-//           NULL AS totalClusterCount,
-//           0 AS completionPercentage
-//         FROM jobassignofficer AS jao
-//         LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
-//         LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
-//         LEFT JOIN officerservices AS os ON glj.serviceId = os.id
-//         LEFT JOIN farms AS f ON glj.farmId = f.id
-//         WHERE jao.officerId = ?
-//           AND DATE(glj.sheduleDate) = CURDATE()
-//           AND jao.isActive = 1
-//           AND (glj.status = 'Pending' OR glj.status = 'Ongoing')
-//           AND NOT EXISTS (
-//               SELECT 1
-//               FROM govijoblinksuggestions AS gjs
-//               WHERE gjs.jobId = glj.id
-//           )
-//       ) AS combinedResults
-//       ORDER BY combinedResults.sheduleDate DESC
-//     `;
-
-//     const draftSql = `
-//       SELECT 
-//         fau.id,
-//         fau.jobId,
-//         fau.propose AS propose,
-//         cp.userId AS farmerId,
-//         cp.id AS certificationpaymentId,
-//         CONCAT(gcu.firstName, ' ', gcu.lastName) AS farmerName,
-//         gcu.phoneNumber AS farmerMobile,
-//         COUNT(slqi.id) AS totalTasks,
-//         SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-//         SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-//         SUM(
-//           CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-//         ) AS totalCompleted,
-//         CASE 
-//           WHEN COUNT(js.id) > 0 THEN 1 
-//           ELSE 0 
-//         END AS hasJobSuggestion,
-//         CASE
-//           WHEN COUNT(js.id) > 0 THEN 60
-//           WHEN SUM(
-//             CASE WHEN slqi.officerTickResult = 1 
-//               OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') 
-//             THEN 1 ELSE 0 END
-//           ) > 0 THEN 30
-//           ELSE 0
-//         END AS completionPercentage
-//       FROM feildaudits AS fau
-//       LEFT JOIN certificationpayment AS cp ON cp.id = fau.paymentId
-//       LEFT JOIN slavequestionnaire AS sq ON sq.crtPaymentId = cp.id
-//       LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-//       LEFT JOIN jobsuggestions AS js ON sq.id = js.slaveId
-//       LEFT JOIN users AS gcu ON cp.userId = gcu.id
-//       WHERE 
-//         fau.assignOfficerId = ? 
-//         AND (fau.status = 'Pending' OR fau.status = 'Ongoing')
-//         AND DATE(fau.sheduleDate) = CURDATE()
-//         AND cp.clusterId IS NULL
-//       GROUP BY fau.id, fau.jobId, cp.userId, fau.status
-//       HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60 AND (fau.status = 'Pending' OR fau.status = 'Ongoing'))
-//       ORDER BY completionPercentage ASC;
-//     `;
-
-//     const clusterSql = `
-//       SELECT 
-//         fau.id,
-//         fau.jobId,
-//         fau.propose AS propose,
-//         cp.clusterId,
-//         fauc.id AS feildAuditClusterId,
-//         f.id AS farmId,
-//         cp.userId AS farmerId,
-//         cp.clusterId,
-//         cp.id AS certificationpaymentId,
-//         CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
-//         ps.phoneNumber AS farmerMobile,
-//         MIN(fcf.id) AS farmclusterfarmId,
-//         MIN(sq.id) AS slavequsanoryid,
-//         SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-//         SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-//         SUM(
-//           CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-//         ) AS totalCompleted,
-//         CASE
-//           WHEN COUNT(js.id) > 0 THEN 60
-//           WHEN SUM(
-//             CASE WHEN slqi.officerTickResult = 1 
-//               OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') 
-//             THEN 1 ELSE 0 END
-//           ) > 0 THEN 30
-//           ELSE 0
-//         END AS completionPercentage
-//       FROM feildaudits AS fau
-//       LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
-//       LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
-//       LEFT JOIN farms AS f ON f.id = fauc.farmId
-//       LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
-//       LEFT JOIN users AS ps ON f.userId = ps.id
-//       LEFT JOIN farmclusterfarmers AS fcf ON f.id = fcf.farmId 
-//       LEFT JOIN slavequestionnaire AS sq 
-//         ON sq.crtPaymentId = cp.id 
-//         AND sq.clusterFarmId = fcf.id
-//       LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-//       LEFT JOIN jobsuggestions AS js ON js.slaveId = sq.id
-//       WHERE 
-//         fau.assignOfficerId = ? 
-//         AND DATE(fau.sheduleDate) = CURDATE()
-//         AND cp.clusterId IS NOT NULL
-//         AND (fau.status = 'Pending' OR fau.status = 'Ongoing')
-//         AND fauc.isCompleted = 0
-//       GROUP BY fau.id, cp.clusterId, fauc.id
-//       HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60)
-//       ORDER BY completionPercentage ASC;
-//     `;
-
-//     const requestSql = `
-//       SELECT 
-//         glj.jobId AS jobId,
-//         glj.id AS id,
-//         "Requested" AS propose,
-//         os.englishName AS serviceenglishName,
-//         os.sinhalaName AS servicesinhalaName,
-//         os.tamilName AS servicetamilName,
-//         "govilinkjobs" AS auditType,
-//         CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
-//         ps2.phoneNumber AS farmerMobile,
-//         glj.sheduleDate AS sheduleDate,
-//         (
-//           CASE WHEN gjs.id IS NOT NULL THEN 30 ELSE 0 END +
-//           CASE WHEN gjp.id IS NOT NULL THEN 30 ELSE 0 END
-//         ) AS completionPercentage
-//       FROM jobassignofficer AS jao
-//       LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
-//       LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
-//       LEFT JOIN officerservices AS os ON glj.serviceId = os.id
-//       LEFT JOIN farms AS f ON glj.farmId = f.id
-//       LEFT JOIN govijoblinksuggestions AS gjs ON gjs.jobId = glj.id
-//       LEFT JOIN govijoblinkproblems AS gjp ON gjp.jobId = glj.id
-//       WHERE jao.officerId = ?
-//         AND DATE(glj.sheduleDate) = CURDATE()
-//         AND jao.isActive = 1
-//         AND (glj.status = 'Pending' OR glj.status = 'Ongoing')
-//       HAVING completionPercentage > 0 AND completionPercentage <= 60
-//     `;
-
-//     // ✅ Execute all queries in parallel
-//     const [visits, draftVisits, clusterVisits, requestVisits] = await Promise.all([
-//       query(visitsSql, [officerId, officerId]),
-//       query(draftSql, [officerId]),
-//       query(clusterSql, [officerId]),
-//       query(requestSql, [officerId])
-//     ]);
-
-//     // Combine draft visits
-//     const combinedDrafts = [...draftVisits, ...clusterVisits, ...requestVisits];
-
-//     return {
-//       visits,
-//       draftVisits: combinedDrafts
-//     };
-
-//   } catch (err) {
-//     console.error("Error fetching officer visits:", err);
-//     throw err;
-//   }
-// };
+const uploadFileToS3 = require("../middleware/s3upload");
+const db = require("../startup/database");
 
 exports.getOfficerVisitsCombined = async (officerId) => {
-  console.log("Fetching all visits for Officer ID:", officerId);
-
   const query = (sql, params) =>
     new Promise((resolve, reject) => {
       db.plantcare.query(sql, params, (err, results) => {
@@ -343,9 +9,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         resolve(results);
       });
     });
-
   try {
-    // ✅ Visits (Pending + Ongoing audits + govilink jobs)
     const visitsSql = `
       SELECT * FROM (
         SELECT 
@@ -641,22 +305,19 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       HAVING completionPercentage > 0 AND completionPercentage <= 60
     `;
 
-    // ✅ Execute all queries in parallel
-    const [visits, draftVisits, clusterVisits, requestVisits] = await Promise.all([
-      query(visitsSql, [officerId, officerId]),
-      query(draftSql, [officerId]),
-      query(clusterSql, [officerId]),
-      query(requestSql, [officerId])
-    ]);
-
-    // Combine draft visits
+    const [visits, draftVisits, clusterVisits, requestVisits] =
+      await Promise.all([
+        query(visitsSql, [officerId, officerId]),
+        query(draftSql, [officerId]),
+        query(clusterSql, [officerId]),
+        query(requestSql, [officerId]),
+      ]);
     const combinedDrafts = [...draftVisits, ...clusterVisits, ...requestVisits];
 
     return {
       visits,
-      draftVisits: combinedDrafts
+      draftVisits: combinedDrafts,
     };
-
   } catch (err) {
     console.error("Error fetching officer visits:", err);
     throw err;
@@ -664,8 +325,6 @@ exports.getOfficerVisitsCombined = async (officerId) => {
 };
 
 exports.getofficerVisits = async (officerId) => {
-  console.log("Officer ID:", officerId);
-
   return new Promise((resolve, reject) => {
     const sql = `
       SELECT * FROM (
@@ -739,17 +398,16 @@ exports.getofficerVisits = async (officerId) => {
         WHERE fau.assignOfficerId = ?
           AND DATE(fau.sheduleDate) = CURDATE()
           AND fau.status = 'Pending'
-AND (
-  cp.clusterId IS NOT NULL
-  OR NOT EXISTS (
-      SELECT 1
-      FROM slavequestionnaire AS sq
-      LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-      WHERE sq.crtPaymentId = cp.id
-        AND (slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> ''))
-  )
-)
-
+                AND (
+                  cp.clusterId IS NOT NULL
+                  OR NOT EXISTS (
+                      SELECT 1
+                      FROM slavequestionnaire AS sq
+                      LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+                      WHERE sq.crtPaymentId = cp.id
+                        AND (slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> ''))
+                  )
+                )
         UNION ALL
 
         SELECT 
@@ -797,9 +455,7 @@ AND (
         console.error("Database error:", err.message);
         return reject(new Error("Database error"));
       }
-
       if (results.length === 0) {
-        console.log('No data found for officer:', officerId);
         return reject(new Error("No pending visits found for today"));
       }
 
@@ -808,148 +464,153 @@ AND (
   });
 };
 
-
 exports.getofficerVisitsDraft = async (officerId) => {
-  console.log("Officer ID for draft percentage:", officerId);
-
   return new Promise((resolve, reject) => {
     const individualSql = `
-      SELECT 
-      fau.id,
-        fau.jobId,
-        fau.propose AS propose,
-        cp.userId AS farmerId,
-        cp.id AS certificationpaymentId,
-        CONCAT( gcu.firstName, ' ',  gcu.lastName) AS farmerName,
-        gcu.phoneNumber AS farmerMobile,
-        COUNT(slqi.id) AS totalTasks,
-        SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-        SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-        SUM(
-          CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-        ) AS totalCompleted,
-        ROUND(
-          (SUM(
+        SELECT 
+        fau.id,
+          fau.jobId,
+          fau.propose AS propose,
+          cp.userId AS farmerId,
+          cp.id AS certificationpaymentId,
+          CONCAT( gcu.firstName, ' ',  gcu.lastName) AS farmerName,
+          gcu.phoneNumber AS farmerMobile,
+          COUNT(slqi.id) AS totalTasks,
+          SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
+          SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
+          SUM(
             CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-          ) / COUNT(slqi.id)) * 100, 1
-        ) AS completionPercentage
-      FROM feildaudits AS fau
-      LEFT JOIN certificationpayment AS cp ON cp.id = fau.paymentId
-      LEFT JOIN slavequestionnaire AS sq ON sq.crtPaymentId = cp.id
-      LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-      LEFT JOIN users AS gcu ON cp.userId = gcu.id
-      WHERE 
-        fau.assignOfficerId = ? 
-        AND fau.status = 'Pending'
-        AND DATE(fau.sheduleDate) = CURDATE()
-        AND cp.clusterId IS NULL
-      GROUP BY fau.id, fau.jobId, cp.userId,  fau.status
-      HAVING completionPercentage < 100 AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
-      ORDER BY completionPercentage ASC;
-    `;
+          ) AS totalCompleted,
+          ROUND(
+            (SUM(
+              CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
+            ) / COUNT(slqi.id)) * 100, 1
+          ) AS completionPercentage
+        FROM feildaudits AS fau
+        LEFT JOIN certificationpayment AS cp ON cp.id = fau.paymentId
+        LEFT JOIN slavequestionnaire AS sq ON sq.crtPaymentId = cp.id
+        LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+        LEFT JOIN users AS gcu ON cp.userId = gcu.id
+        WHERE 
+          fau.assignOfficerId = ? 
+          AND fau.status = 'Pending'
+          AND DATE(fau.sheduleDate) = CURDATE()
+          AND cp.clusterId IS NULL
+        GROUP BY fau.id, fau.jobId, cp.userId,  fau.status
+        HAVING completionPercentage < 100 AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
+        ORDER BY completionPercentage ASC;
+      `;
 
     const clusterSql = `
-  SELECT 
-  fau.id,
-    fau.jobId,
-    fau.propose AS propose,
-    cp.userId AS farmerId,
-    cp.id AS certificationpaymentId,
-    CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
-    ps.phoneNumber AS farmerMobile,
-    cp.clusterId ,
-    f.id AS farmId,
-    SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
-    SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
-    SUM(
-      CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-    ) AS totalCompleted,
-    ROUND(
-      (SUM(
-        CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
-      ) / COUNT(slqi.id)) * 100, 1
-    ) AS completionPercentage
-  FROM feildaudits AS fau
-  LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
-  LEFT JOIN farms AS f ON f.id = fauc.farmId
-  LEFT JOIN farmclusterfarmers AS fcf ON fcf.farmId = f.id
-  LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
-  LEFT JOIN users AS ps ON f.userId = ps.id
-  LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
-  LEFT JOIN slavequestionnaire AS sq ON fcf.id = sq.clusterFarmId
-  LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
-  WHERE 
-    fau.assignOfficerId = ? 
-    AND fauc.isCompleted = 0
-    AND DATE(fau.sheduleDate) = CURDATE()
-    AND cp.clusterId IS NOT NULL
-  GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
-  HAVING completionPercentage < 100  AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
-  ORDER BY completionPercentage ASC;
-`;
+        SELECT 
+        fau.id,
+          fau.jobId,
+          fau.propose AS propose,
+          cp.userId AS farmerId,
+          cp.id AS certificationpaymentId,
+          CONCAT(ps.firstName, ' ', ps.lastName) AS farmerName,
+          ps.phoneNumber AS farmerMobile,
+          cp.clusterId ,
+          f.id AS farmId,
+          SUM(CASE WHEN slqi.officerTickResult = 1 THEN 1 ELSE 0 END) AS tickCompleted,
+          SUM(CASE WHEN slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '' THEN 1 ELSE 0 END) AS photoCompleted,
+          SUM(
+            CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
+          ) AS totalCompleted,
+          ROUND(
+            (SUM(
+              CASE WHEN slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> '') THEN 1 ELSE 0 END
+            ) / COUNT(slqi.id)) * 100, 1
+          ) AS completionPercentage
+        FROM feildaudits AS fau
+        LEFT JOIN feildauditcluster AS fauc ON fauc.feildAuditId = fau.id
+        LEFT JOIN farms AS f ON f.id = fauc.farmId
+        LEFT JOIN farmclusterfarmers AS fcf ON fcf.farmId = f.id
+        LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
+        LEFT JOIN users AS ps ON f.userId = ps.id
+        LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
+        LEFT JOIN slavequestionnaire AS sq ON fcf.id = sq.clusterFarmId
+        LEFT JOIN slavequestionnaireitems AS slqi ON slqi.slaveId = sq.id
+        WHERE 
+          fau.assignOfficerId = ? 
+          AND fauc.isCompleted = 0
+          AND DATE(fau.sheduleDate) = CURDATE()
+          AND cp.clusterId IS NOT NULL
+        GROUP BY fau.id, fau.jobId, cp.userId, fau.status, ps.firstName, ps.lastName, ps.phoneNumber, f.id, fcf.id
+        HAVING completionPercentage < 100  AND  completionPercentage > 0 OR (completionPercentage = 100 AND fau.status = 'Pending')
+        ORDER BY completionPercentage ASC;
+      `;
     const requestSql = `
-  SELECT 
-    glj.jobId AS jobId,
-    glj.id AS id,
-    "Requested" AS propose,
-    os.englishName AS serviceenglishName,
-    os.sinhalaName AS servicesinhalaName,
-    os.tamilName AS servicetamilName,
-    "govilinkjobs" AS auditType,
-    CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
-    ps2.phoneNumber AS farmerMobile,
-    glj.sheduleDate AS sheduleDate,
+      SELECT 
+        glj.jobId AS jobId,
+        glj.id AS id,
+        "Requested" AS propose,
+        os.englishName AS serviceenglishName,
+        os.sinhalaName AS servicesinhalaName,
+        os.tamilName AS servicetamilName,
+        "govilinkjobs" AS auditType,
+        CONCAT(ps2.firstName, ' ', ps2.lastName) AS farmerName,
+        ps2.phoneNumber AS farmerMobile,
+        glj.sheduleDate AS sheduleDate,
 
-    -- ✅ Completion logic
-    CASE
-      WHEN gjs.id IS NOT NULL AND gjp.id IS NOT NULL THEN 100
-      WHEN gjs.id IS NOT NULL AND gjp.id IS NULL THEN 50
-      ELSE 0
-    END AS completionPercentage
+        -- Completion logic
+        CASE
+          WHEN gjs.id IS NOT NULL AND gjp.id IS NOT NULL THEN 100
+          WHEN gjs.id IS NOT NULL AND gjp.id IS NULL THEN 50
+          ELSE 0
+        END AS completionPercentage
 
-        FROM jobassignofficer AS jao
-        LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
-  LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
-  LEFT JOIN officerservices AS os ON glj.serviceId = os.id
-  LEFT JOIN farms AS f ON glj.farmId = f.id
+            FROM jobassignofficer AS jao
+            LEFT JOIN govilinkjobs AS glj ON jao.jobId = glj.id
+      LEFT JOIN users AS ps2 ON glj.farmerId = ps2.id
+      LEFT JOIN officerservices AS os ON glj.serviceId = os.id
+      LEFT JOIN farms AS f ON glj.farmId = f.id
 
-  -- ✅ Check for suggestion and problem existence
-  LEFT JOIN govijoblinksuggestions AS gjs ON gjs.jobId = glj.id
-  LEFT JOIN govijoblinkproblems AS gjp ON gjp.jobId = glj.id
+      -- Check for suggestion and problem existence
+      LEFT JOIN govijoblinksuggestions AS gjs ON gjs.jobId = glj.id
+      LEFT JOIN govijoblinkproblems AS gjp ON gjp.jobId = glj.id
 
-  WHERE jao.officerId = ?
-    AND DATE(glj.sheduleDate) = CURDATE()
-    AND jao.isActive = 1
-    AND glj.status = 'Pending'
-    HAVING completionPercentage > 0 AND completionPercentage <= 100
-`;
+      WHERE jao.officerId = ?
+        AND DATE(glj.sheduleDate) = CURDATE()
+        AND jao.isActive = 1
+        AND glj.status = 'Pending'
+        HAVING completionPercentage > 0 AND completionPercentage <= 100
+    `;
 
+    db.plantcare.query(
+      individualSql,
+      [officerId],
+      (err1, individualResults) => {
+        if (err1) return reject(err1);
 
-    db.plantcare.query(individualSql, [officerId], (err1, individualResults) => {
-      if (err1) return reject(err1);
+        db.plantcare.query(clusterSql, [officerId], (err2, clusterResults) => {
+          if (err2) return reject(err2);
 
-      db.plantcare.query(clusterSql, [officerId], (err2, clusterResults) => {
-        if (err2) return reject(err2);
+          db.plantcare.query(
+            requestSql,
+            [officerId],
+            (err3, requestResults) => {
+              if (err3) return reject(err3);
 
-        db.plantcare.query(requestSql, [officerId], (err3, requestResults) => {
-          if (err3) return reject(err3);
-
-          const results = [
-            ...individualResults,
-            ...clusterResults,
-            ...requestResults,
-          ];
-          console.log("✅ Draft Jobs Found:", results);
-          resolve(results);
+              const results = [
+                ...individualResults,
+                ...clusterResults,
+                ...requestResults,
+              ];
+              resolve(results);
+            },
+          );
         });
-      });
-    });
+      },
+    );
   });
 };
 
-exports.getindividualauditsquestions = async (certificationpaymentId, farmId, clusterId) => {
-  console.log("certification payment ID:", certificationpaymentId, "clusterId:", clusterId, "farmId:", farmId);
-
+exports.getindividualauditsquestions = async (
+  certificationpaymentId,
+  farmId,
+  clusterId,
+) => {
   return new Promise((resolve, reject) => {
     let sql = `
       SELECT 
@@ -981,35 +642,37 @@ exports.getindividualauditsquestions = async (certificationpaymentId, farmId, cl
       }
 
       if (results.length === 0) {
-        console.log("⚠️ No questions found for:", certificationpaymentId, clusterId, farmId);
-        return reject(new Error("No questions found for this certification payment"));
+        return reject(
+          new Error("No questions found for this certification payment"),
+        );
       }
 
-      // Extract certificate info
       const first = results[0];
       const certificate = {
         logo: first.logo || null,
         srtName: first.srtName || "",
         createdAt: first.createdAt || null,
         slavequestionnaireId: first.slavequestionnaireId || null,
-        certificateId: first.certificateId || null
+        certificateId: first.certificateId || null,
       };
 
-      // Extract questions only
-      const questions = results.map(({ logo, srtName, createdAt, slavequestionnaireId, certificateId, ...rest }) => rest);
-
-      console.log("✅ Questions count:", questions.length);
+      const questions = results.map(
+        ({
+          logo,
+          srtName,
+          createdAt,
+          slavequestionnaireId,
+          certificateId,
+          ...rest
+        }) => rest,
+      );
       resolve({ certificate, questions });
     });
   });
 };
 
-
 exports.setCheckQuestions = async (id) => {
-  console.log("DAO: Toggling tickResult for question ID:", id);
-
   return new Promise((resolve, reject) => {
-    // Step 1: Get current tickResult
     const selectSql = `
       SELECT officerTickResult
       FROM slavequestionnaireitems 
@@ -1019,7 +682,9 @@ exports.setCheckQuestions = async (id) => {
     db.plantcare.query(selectSql, [id], (err, results) => {
       if (err) {
         console.error("❌ Database error (select):", err.message);
-        return reject(new Error("Database error while fetching current tickResult"));
+        return reject(
+          new Error("Database error while fetching current tickResult"),
+        );
       }
 
       if (results.length === 0) {
@@ -1030,7 +695,6 @@ exports.setCheckQuestions = async (id) => {
       const currentTick = results[0].officerTickResult || 0;
       const newTick = currentTick === 1 ? 0 : 1;
 
-      // Step 2: Update with toggled value
       const updateSql = `
         UPDATE slavequestionnaireitems
         SET officerTickResult = ?,
@@ -1043,13 +707,10 @@ exports.setCheckQuestions = async (id) => {
           console.error("❌ Database error (update):", err2.message);
           return reject(new Error("Database error while updating tickResult"));
         }
-
         if (result.affectedRows === 0) {
           console.warn("⚠️ Update failed, no rows affected for ID:", id);
           return reject(new Error("Question not found or not updated"));
         }
-
-        console.log(`✅ tickResult toggled successfully for question ${id} → ${newTick}`);
         resolve({ id, newTick });
       });
     });
@@ -1068,24 +729,21 @@ exports.getexistingTaskImageImage = async (id) => {
     db.plantcare.query(sql, [id], (err, results) => {
       if (err) {
         console.error("❌ Database error:", err.message);
-        return reject(new Error("Database error while fetching existing task image"));
+        return reject(
+          new Error("Database error while fetching existing task image"),
+        );
       }
 
       if (!results || results.length === 0) {
         console.warn("⚠️ No question found with ID:", id);
         return resolve(null);
       }
-
-      // ✅ Return the first result
       resolve(results[0]);
     });
   });
 };
 
-
 exports.setCheckPhotoProof = async (id, uploadImage) => {
-  console.log("DAO: Updating tickResult and uploadImage for question ID:", id);
-
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE slavequestionnaireitems
@@ -1104,15 +762,12 @@ exports.setCheckPhotoProof = async (id, uploadImage) => {
         console.warn("⚠️ No question found with ID:", id);
         return reject(new Error("Question not found"));
       }
-
-      console.log("✅ tickResult updated successfully for question:", id);
       resolve(result);
     });
   });
 };
 
 exports.clearPhotoProofImage = async (id) => {
-  console.log("DAO: Clearing photo proof for question ID:", id);
   return new Promise((resolve, reject) => {
     const sql = `
       UPDATE slavequestionnaireitems
@@ -1129,59 +784,52 @@ exports.clearPhotoProofImage = async (id) => {
   });
 };
 
-
 exports.setsaveProblem = async (payload, officerId) => {
-  console.log("DAO: Saving problem → Payload:", payload);
-
   return new Promise((resolve, reject) => {
     const { problem, solution, slavequestionnaireId } = payload;
 
     if (!officerId) {
-      console.error("❌ Missing officerId");
+      console.error("Missing officerId");
       return reject(new Error("Invalid officerId"));
     }
 
-    // Step 1: Check if officer exists in feildofficer table
     const checkSql = `SELECT id FROM feildofficer WHERE id = ?`;
     db.plantcare.query(checkSql, [officerId], (checkErr, rows) => {
       if (checkErr) {
-        console.error("❌ DB error checking officer:", checkErr.message);
+        console.error("DB error checking officer:", checkErr.message);
         return reject(new Error("Database error while checking officer"));
       }
 
       if (rows.length === 0) {
-        console.error("❌ Officer not found in feildofficer table:", officerId);
+        console.error("Officer not found in feildofficer table:", officerId);
         return reject(new Error(`Officer with ID ${officerId} not found`));
       }
-
-      // Step 2: Proceed with insert into jobsuggestions
       const insertSql = `
         INSERT INTO jobsuggestions (slaveId, problem, solution, officerId, createdAt)
         VALUES (?, ?, ?, ?, NOW())
       `;
 
-      db.plantcare.query(insertSql, [slavequestionnaireId, problem, solution, officerId], (err, result) => {
-        if (err) {
-          console.error("❌ DB error inserting problem:", err.message);
-          return reject(new Error("Database error while saving problem"));
-        }
-
-        console.log("✅ Problem saved successfully → ID:", result.insertId);
-        resolve({ id: result.insertId });
-      });
+      db.plantcare.query(
+        insertSql,
+        [slavequestionnaireId, problem, solution, officerId],
+        (err, result) => {
+          if (err) {
+            console.error("DB error inserting problem:", err.message);
+            return reject(new Error("Database error while saving problem"));
+          }
+          resolve({ id: result.insertId });
+        },
+      );
     });
   });
 };
 
 exports.getProblemsSolutionsBySlaveId = async (slaveId) => {
-  console.log("DAO: Fetching problems for slaveId →", slaveId);
-
   return new Promise((resolve, reject) => {
     if (!slaveId) {
-      console.error("❌ Missing slaveId");
+      console.error("Missing slaveId");
       return reject(new Error("Invalid slaveId"));
     }
-
     const sql = `
       SELECT id, problem, solution, createdAt
       FROM jobsuggestions
@@ -1191,24 +839,20 @@ exports.getProblemsSolutionsBySlaveId = async (slaveId) => {
 
     db.plantcare.query(sql, [slaveId], (err, results) => {
       if (err) {
-        console.error("❌ DB error fetching problems:", err.message);
+        console.error("DB error fetching problems:", err.message);
         return reject(new Error("Database error while fetching problems"));
       }
-
-      console.log("✅ Problems fetched successfully → Count:", results.length);
       resolve(results);
     });
   });
 };
 
 exports.updateProblem = async (id, payload) => {
-  console.log("DAO: Updating problem → ID:", id, "| Payload:", payload);
-
   return new Promise((resolve, reject) => {
     const { problem, solution } = payload;
 
     if (!id) {
-      console.error("❌ Missing id or officerId");
+      console.error("Missing id or officerId");
       return reject(new Error("Invalid input"));
     }
 
@@ -1220,48 +864,37 @@ exports.updateProblem = async (id, payload) => {
 
     db.plantcare.query(updateSql, [problem, solution, id], (err, result) => {
       if (err) {
-        console.error("❌ DB error updating problem:", err.message);
+        console.error("DB error updating problem:", err.message);
         return reject(new Error("Database error while updating problem"));
       }
 
       if (result.affectedRows === 0) {
-        return reject(new Error("Problem not found or not authorized to update"));
+        return reject(
+          new Error("Problem not found or not authorized to update"),
+        );
       }
-
-      console.log("✅ Problem updated successfully → ID:", id);
       resolve({ id });
     });
   });
 };
 
-
-
 exports.setcomplete = async (id, payload) => {
-  console.log("DAO: Updating problem → ID:", id, "| Payload:", payload);
-
   const { isClusterAudit, farmId } = payload;
-
   return new Promise((resolve, reject) => {
     if (!id) return reject(new Error("Audit ID is required"));
-
-    // CASE 1: Non-cluster audit → directly mark feildaudit as completed
     if (!isClusterAudit) {
       const sql = `UPDATE feildaudits SET status = 'Completed', completeDate = NOW() WHERE id = ?`;
       db.plantcare.query(sql, [id], (err, result) => {
         if (err) {
-          console.error("❌ DB error updating feildaudit:", err.message);
+          console.error("DB error updating feildaudit:", err.message);
           return reject(new Error("Database error while updating feildaudit"));
         }
         if (result.affectedRows === 0) {
           return reject(new Error("Audit not found or already completed"));
         }
-        console.log(`✅ feildaudit ${id} marked as Completed`);
         return resolve({ success: true, message: "Audit marked as completed" });
       });
-    }
-
-    // CASE 2: Cluster audit → update farmclusterfarms first
-    else {
+    } else {
       const sqlUpdateFarm = `
         UPDATE feildauditcluster 
         SET isCompleted = 1 
@@ -1270,17 +903,18 @@ exports.setcomplete = async (id, payload) => {
 
       db.plantcare.query(sqlUpdateFarm, [id, farmId], (err, result) => {
         if (err) {
-          console.error("❌ DB error updating farmclusterfarmers:", err.message);
-          return reject(new Error("Database error while updating farm completion"));
+          console.error(
+            "DB error updating farmclusterfarmers:",
+            err.message,
+          );
+          return reject(
+            new Error("Database error while updating farm completion"),
+          );
         }
 
         if (result.affectedRows === 0) {
           return reject(new Error("Farm not found or already completed"));
         }
-
-        console.log(`✅ Farm ${farmId} marked complete for audit ${id}`);
-
-        // Now check if all farms in this audit are complete
         const sqlCheckAll = `
           SELECT COUNT(*) AS total, 
                  SUM(CASE WHEN isCompleted = 1 THEN 1 ELSE 0 END) AS completed
@@ -1290,21 +924,19 @@ exports.setcomplete = async (id, payload) => {
 
         db.plantcare.query(sqlCheckAll, [id], (err, rows) => {
           if (err) {
-            console.error("❌ DB error checking farm completion:", err.message);
-            return reject(new Error("Database error while verifying cluster completion"));
+            console.error("DB error checking farm completion:", err.message);
+            return reject(
+              new Error("Database error while verifying cluster completion"),
+            );
           }
 
           const { total, completed } = rows[0];
           const totalNum = Number(total);
           const completedNum = Number(completed);
 
-          console.log(`🔍 Cluster audit ${id}: ${completedNum}/${totalNum} farms completed`);
-
-          // 🔥 CHANGED: Update when 20% or more farms are completed
-          const threshold = Math.ceil(totalNum * 0.20); // 20% threshold (rounded up)
+          const threshold = Math.ceil(totalNum * 0.2);
 
           if (completedNum >= threshold) {
-            // 20% or more farms completed → mark feildaudit as completed
             const sqlUpdateAudit = `
               UPDATE feildaudits 
               SET status = 'Completed', completeDate = NOW() 
@@ -1313,21 +945,29 @@ exports.setcomplete = async (id, payload) => {
 
             db.plantcare.query(sqlUpdateAudit, [id], (err2, result2) => {
               if (err2) {
-                console.error("❌ DB error updating feildaudit:", err2.message);
-                return reject(new Error("Database error while completing feildaudit"));
+                console.error("DB error updating feildaudit:", err2.message);
+                return reject(
+                  new Error("Database error while completing feildaudit"),
+                );
               }
 
               if (completedNum === totalNum) {
-                console.log(`🏁 Cluster audit ${id} fully completed (${completedNum}/${totalNum})`);
-                return resolve({ success: true, message: "Cluster audit fully completed" });
+                return resolve({
+                  success: true,
+                  message: "Cluster audit fully completed",
+                });
               } else {
-                console.log(`✅ Cluster audit ${id} marked complete with ${completedNum}/${totalNum} farms (${threshold}+ required)`);
-                return resolve({ success: true, message: `Cluster audit completed with ${completedNum}/${totalNum} farms` });
+                return resolve({
+                  success: true,
+                  message: `Cluster audit completed with ${completedNum}/${totalNum} farms`,
+                });
               }
             });
           } else {
-            console.log(`⏳ Cluster audit ${id}: ${completedNum}/${totalNum} farms done (${threshold} needed for completion)`);
-            return resolve({ success: true, message: `Farm marked complete, ${threshold - completedNum} more needed` });
+            return resolve({
+              success: true,
+              message: `Farm marked complete, ${threshold - completedNum} more needed`,
+            });
           }
         });
       });
@@ -1335,13 +975,8 @@ exports.setcomplete = async (id, payload) => {
   });
 };
 
-
-
 exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
-  console.log("Officer ID:", officerId, "Date:", date, "isOverdue:", isOverdueSelected);
-
   return new Promise((resolve, reject) => {
-    // Format date as YYYY-MM-DD
     const formatDate = (d) => {
       const dt = new Date(d);
       const yyyy = dt.getFullYear();
@@ -1351,11 +986,8 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     };
 
     const selectedDateString = formatDate(date);
-    const isOverdue = (isOverdueSelected === true || isOverdueSelected === "true");
-
-    console.log("✔ isOverdue:", isOverdue);
-
-    // Dynamic conditions - Updated to include Ongoing status
+    const isOverdue =
+      isOverdueSelected === true || isOverdueSelected === "true";
     const dateCondition = isOverdue
       ? `
         DATE(fau.sheduleDate) < DATE(CURDATE()) 
@@ -1383,10 +1015,6 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
       ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND (glj.status = 'Pending' OR glj.status = 'Ongoing')"
       : "DATE(glj.sheduleDate) = ? AND jao.isActive = 1 AND (glj.status = 'Pending' OR glj.status = 'Ongoing' OR glj.status = 'Completed')";
 
-    console.log("FAU condition:", dateCondition);
-    console.log("GLJ condition:", gljDateCondition);
-
-    // Main SQL
     const sql = `
       SELECT * FROM (
         SELECT 
@@ -1497,20 +1125,14 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     } else {
       params = [officerId, selectedDateString, officerId, selectedDateString];
     }
-
-    console.log("SQL Params:", params);
-
     db.plantcare.query(sql, params, (err, results) => {
       if (err) return reject(new Error("Database error: " + err.message));
-      console.log("✅ Visits fetched successfully → Count:", results.length);
       resolve(results);
-      console.log({ results });
     });
   });
 };
 
-// Get field officers with optional search
-exports.getFieldOfficers = async (irmId, search = '') => {
+exports.getFieldOfficers = async (irmId, search = "") => {
   return new Promise((resolve, reject) => {
     let sql = `
             SELECT 
@@ -1529,7 +1151,7 @@ exports.getFieldOfficers = async (irmId, search = '') => {
 
     const queryParams = [irmId];
 
-    if (search && search.trim() !== '') {
+    if (search && search.trim() !== "") {
       sql += `
                 AND (
                     firstName LIKE ? OR 
@@ -1558,45 +1180,37 @@ exports.getFieldOfficers = async (irmId, search = '') => {
 
       resolve({
         data: results,
-        count: results.length
+        count: results.length,
       });
     });
   });
 };
 
-// Create a new field officer
 exports.createFieldOfficer = async (irmId, officerData, files) => {
   return new Promise(async (resolve, reject) => {
     try {
-      // Convert assignDistrict array to string for database
       const assignDistrictString = Array.isArray(officerData.assignDistrict)
-        ? officerData.assignDistrict.join(', ')
+        ? officerData.assignDistrict.join(", ")
         : officerData.assignDistrict;
 
-      // Handle languages conversion - convert to comma-separated string
       let languageString = "";
-      if (typeof officerData.languages === 'string') {
+      if (typeof officerData.languages === "string") {
         try {
-          // Parse the JSON string
           const languagesObj = JSON.parse(officerData.languages);
-          // Convert to comma-separated string of selected languages
           languageString = Object.keys(languagesObj)
-            .filter(lang => languagesObj[lang])
-            .join(', ');
+            .filter((lang) => languagesObj[lang])
+            .join(", ");
         } catch (error) {
           languageString = officerData.languages;
         }
-      } else if (typeof officerData.languages === 'object') {
-        // If it's already an object, convert to comma-separated string
+      } else if (typeof officerData.languages === "object") {
         languageString = Object.keys(officerData.languages)
-          .filter(lang => officerData.languages[lang])
-          .join(', ');
+          .filter((lang) => officerData.languages[lang])
+          .join(", ");
       }
 
-      // Generate employee ID
       const generateEmployeeId = () => {
         return new Promise((resolve, reject) => {
-          // First, get the latest employee ID from the database
           const getLatestIdQuery = `
                         SELECT empId FROM feildofficer 
                         WHERE empId LIKE 'FIO%' 
@@ -1607,25 +1221,22 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           db.plantcare.query(getLatestIdQuery, (err, results) => {
             if (err) {
               console.error("Error getting latest employee ID:", err.message);
-              return reject(new Error("Database error while generating employee ID"));
+              return reject(
+                new Error("Database error while generating employee ID"),
+              );
             }
-
-            let nextNumber = 1; // Default starting number
-
+            let nextNumber = 1;
             if (results.length > 0) {
               const latestEmpId = results[0].empId;
-              if (latestEmpId && latestEmpId.startsWith('FIO')) {
-                // Extract the number part and increment
-                const numberPart = latestEmpId.substring(3); // Remove 'FIO' prefix
+              if (latestEmpId && latestEmpId.startsWith("FIO")) {
+                const numberPart = latestEmpId.substring(3);
                 const currentNumber = parseInt(numberPart, 10);
                 if (!isNaN(currentNumber)) {
                   nextNumber = currentNumber + 1;
                 }
               }
             }
-
-            // Format the number with leading zeros (5 digits total)
-            const formattedNumber = nextNumber.toString().padStart(5, '0');
+            const formattedNumber = nextNumber.toString().padStart(5, "0");
             const newEmpId = `FIO${formattedNumber}`;
 
             resolve(newEmpId);
@@ -1633,23 +1244,19 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         });
       };
 
-      // Generate the employee ID
       const empId = await generateEmployeeId();
-      const jobRole = "Field Officer"; // Always set to Field Officer
-
-      // Upload files to S3 if they exist
+      const jobRole = "Field Officer";
       let profileUrl = null;
       let frontNicUrl = null;
       let backNicUrl = null;
       let backPassbookUrl = null;
       let contractUrl = null;
 
-      // Upload profile image if provided
       if (files.profile && files.profile[0]) {
         profileUrl = await uploadFileToS3(
           files.profile[0].buffer,
           files.profile[0].originalname,
-          'field-officer/profile'
+          "field-officer/profile",
         );
       }
 
@@ -1657,7 +1264,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         frontNicUrl = await uploadFileToS3(
           files.frontNic[0].buffer,
           files.frontNic[0].originalname,
-          'field-officer/front-nic'
+          "field-officer/front-nic",
         );
       }
 
@@ -1665,7 +1272,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         backNicUrl = await uploadFileToS3(
           files.backNic[0].buffer,
           files.backNic[0].originalname,
-          'field-officer/back-nic'
+          "field-officer/back-nic",
         );
       }
 
@@ -1673,7 +1280,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         backPassbookUrl = await uploadFileToS3(
           files.backPassbook[0].buffer,
           files.backPassbook[0].originalname,
-          'field-officer/passbooks'
+          "field-officer/passbooks",
         );
       }
 
@@ -1681,11 +1288,10 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
         contractUrl = await uploadFileToS3(
           files.contract[0].buffer,
           files.contract[0].originalname,
-          'field-officer/contracts'
+          "field-officer/contracts",
         );
       }
 
-      // Check for existing NIC, email, and phone numbers
       const checkExistingQuery = `
                 SELECT id FROM feildofficer 
                 WHERE nic = ? OR email = ? OR (phoneCode1 = ? AND phoneNumber1 = ?)
@@ -1697,16 +1303,22 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           officerData.nic,
           officerData.email,
           officerData.phoneCode1,
-          officerData.phoneNumber1
+          officerData.phoneNumber1,
         ],
         (checkErr, checkResults) => {
           if (checkErr) {
             console.error("Database check error:", checkErr.message);
-            return reject(new Error("Database error while checking existing records"));
+            return reject(
+              new Error("Database error while checking existing records"),
+            );
           }
 
           if (checkResults.length > 0) {
-            return reject(new Error("Officer with this NIC, email or phone number already exists"));
+            return reject(
+              new Error(
+                "Officer with this NIC, email or phone number already exists",
+              ),
+            );
           }
 
           // Prepare SQL query - UPDATED with correct number of placeholders (35)
@@ -1723,8 +1335,8 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           const values = [
             irmId,
             officerData.empType,
-            empId, // Auto-generated employee ID
-            jobRole, // Always "Field Officer"
+            empId, 
+            jobRole, 
             languageString,
             assignDistrictString,
             officerData.firstName,
@@ -1755,14 +1367,8 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
             backNicUrl,
             backPassbookUrl,
             contractUrl,
-            'Not Approved' // Default status
+            "Not Approved",
           ];
-
-          console.log('Executing SQL with values:', values);
-          console.log('Generated Employee ID:', empId);
-          console.log('Job Role:', jobRole);
-          console.log('Number of columns in SQL:', 35); // Count of columns listed
-          console.log('Number of values provided:', values.length); // Should match
 
           db.plantcare.query(sql, values, (err, results) => {
             if (err) {
@@ -1770,9 +1376,10 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
               console.error("SQL:", sql);
               console.error("Values count:", values.length);
 
-              // Handle duplicate entry errors
-              if (err.code === 'ER_DUP_ENTRY') {
-                return reject(new Error("Officer with this NIC or email already exists"));
+              if (err.code === "ER_DUP_ENTRY") {
+                return reject(
+                  new Error("Officer with this NIC or email already exists"),
+                );
               }
 
               return reject(new Error("Database error: " + err.message));
@@ -1781,20 +1388,15 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
             if (results.affectedRows === 0) {
               return reject(new Error("Failed to create field officer"));
             }
-
-            console.log('Field officer created successfully with ID:', results.insertId);
-            console.log('Employee ID:', empId);
-
             resolve({
               id: results.insertId,
               empId: empId,
               jobRole: jobRole,
-              message: "Field officer created successfully."
+              message: "Field officer created successfully.",
             });
           });
-        }
+        },
       );
-
     } catch (error) {
       console.error("Error in createFieldOfficer:", error);
       reject(error);
@@ -1802,7 +1404,7 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
   });
 };
 
-// Check existing NIC
+// Check Existing NIC
 exports.checkNicExists = async (nic) => {
   return new Promise((resolve, reject) => {
     const sql = `SELECT id FROM feildofficer WHERE nic = ?`;
@@ -1818,7 +1420,7 @@ exports.checkNicExists = async (nic) => {
   });
 };
 
-// Check existing email
+// Check Existing Email
 exports.checkEmailExists = async (email) => {
   return new Promise((resolve, reject) => {
     const sql = `SELECT id FROM feildofficer WHERE email = ?`;
@@ -1834,24 +1436,25 @@ exports.checkEmailExists = async (email) => {
   });
 };
 
-// Check existing phone number
+// Check Existing Phone
 exports.checkPhoneExists = async (phoneCode, phoneNumber) => {
-  console.log("hit", phoneCode, phoneNumber)
   return new Promise((resolve, reject) => {
-    // const sql = `SELECT id FROM feildofficer WHERE phoneCode1 = ? AND phoneNumber1 = ?`;
     const sql = `
             SELECT id 
             FROM feildofficer 
             WHERE (phoneCode1 = ? AND phoneNumber1 = ?)
                OR (phoneCode2 = ? AND phoneNumber2 = ?)
         `;
-    db.plantcare.query(sql, [phoneCode, phoneNumber, phoneCode, phoneNumber], (err, results) => {
-      if (err) {
-        console.error("Database error:", err.message);
-        return reject(new Error("Database error"));
-      }
-      console.log(results)
-      resolve(results.length > 0);
-    });
+    db.plantcare.query(
+      sql,
+      [phoneCode, phoneNumber, phoneCode, phoneNumber],
+      (err, results) => {
+        if (err) {
+          console.error("Database error:", err.message);
+          return reject(new Error("Database error"));
+        }
+        resolve(results.length > 0);
+      },
+    );
   });
 };
