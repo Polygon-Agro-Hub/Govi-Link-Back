@@ -1,12 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../Middlewares/auth.middleware');
+const auth = require('../middleware/auth.middleware');
 const cluterAuditEp = require('../end-point/cluterAudit-ep');
-const upload = require('../Middlewares/multer.middleware');
-
 
 router.get('/cluster-visits/:id', auth, cluterAuditEp.getclusterVisits);
 
-router.post('/status/onGoing/:id', auth, cluterAuditEp.UpdateStatus);
+router.post('/status/on-going/:id', auth, cluterAuditEp.UpdateStatus);
 
 module.exports = router;
