@@ -120,7 +120,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         LEFT JOIN farms AS fcrop ON ocs.farmId = fcrop.id
         LEFT JOIN farms AS ffarm ON cpf.farmId = ffarm.id
         WHERE fau.assignOfficerId = ?
-          AND DATE(fau.startDate) = CURDATE()
+          AND (DATE(fau.startDate) = CURDATE() OR DATE(fau.sheduleDate) = CURDATE())
           AND (fau.status = 'Pending' OR fau.status = 'Ongoing')
           AND (
             cp.clusterId IS NOT NULL
@@ -167,7 +167,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         LEFT JOIN officerservices AS os ON glj.serviceId = os.id
         LEFT JOIN farms AS f ON glj.farmId = f.id
         WHERE jao.officerId = ?
-          AND DATE(glj.startDate) = CURDATE()
+          AND (DATE(glj.startDate) = CURDATE() OR DATE(glj.sheduleDate) = CURDATE())
           AND jao.isActive = 1
           AND (glj.status = 'Pending' OR glj.status = 'Ongoing')
           AND NOT EXISTS (
@@ -216,7 +216,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       WHERE 
         fau.assignOfficerId = ? 
         AND (fau.status = 'Pending' OR fau.status = 'Ongoing')
-        AND DATE(fau.startDate) = CURDATE()
+        AND (DATE(fau.startDate) = CURDATE() OR DATE(fau.sheduleDate) = CURDATE())
         AND cp.clusterId IS NULL
       GROUP BY fau.id, fau.jobId, cp.userId, fau.status
       HAVING (completionPercentage < 100 AND completionPercentage > 0) OR (completionPercentage = 60 AND (fau.status = 'Pending' OR fau.status = 'Ongoing'))
@@ -266,7 +266,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       LEFT JOIN jobsuggestions AS js ON js.slaveId = sq.id
       WHERE 
         fau.assignOfficerId = ? 
-        AND DATE(fau.startDate) = CURDATE()
+        AND (DATE(fau.startDate) = CURDATE() OR DATE(fau.sheduleDate) = CURDATE())
         AND cp.clusterId IS NOT NULL
         AND (fau.status = 'Pending' OR fau.status = 'Ongoing')
         AND fauc.isCompleted = 0
@@ -299,7 +299,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       LEFT JOIN govijoblinksuggestions AS gjs ON gjs.jobId = glj.id
       LEFT JOIN govijoblinkproblems AS gjp ON gjp.jobId = glj.id
       WHERE jao.officerId = ?
-        AND DATE(glj.startDate) = CURDATE()
+        AND (DATE(glj.startDate) = CURDATE() OR DATE(glj.sheduleDate) = CURDATE())
         AND jao.isActive = 1
         AND (glj.status = 'Pending' OR glj.status = 'Ongoing')
       HAVING completionPercentage > 0 AND completionPercentage <= 60
@@ -312,6 +312,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         query(clusterSql, [officerId]),
         query(requestSql, [officerId]),
       ]);
+
     const combinedDrafts = [...draftVisits, ...clusterVisits, ...requestVisits];
 
     return {
@@ -903,10 +904,7 @@ exports.setcomplete = async (id, payload) => {
 
       db.plantcare.query(sqlUpdateFarm, [id, farmId], (err, result) => {
         if (err) {
-          console.error(
-            "DB error updating farmclusterfarmers:",
-            err.message,
-          );
+          console.error("DB error updating farmclusterfarmers:", err.message);
           return reject(
             new Error("Database error while updating farm completion"),
           );
@@ -1321,7 +1319,6 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
             );
           }
 
-          // Prepare SQL query - UPDATED with correct number of placeholders (35)
           const sql = `
                         INSERT INTO feildofficer (
                             irmId, empType, empId, JobRole, language, assignDistrict, firstName, firstNameSinhala, 
@@ -1335,8 +1332,8 @@ exports.createFieldOfficer = async (irmId, officerData, files) => {
           const values = [
             irmId,
             officerData.empType,
-            empId, 
-            jobRole, 
+            empId,
+            jobRole,
             languageString,
             assignDistrictString,
             officerData.firstName,
