@@ -1,4 +1,4 @@
-const userDao = require("../dao/userAuth-dao");
+const userDao = require("../dao/user-auth-dao");
 const jwt = require("jsonwebtoken");
 const { loginSchema } = require("../validation/auth-validations");
 const asyncHandler = require("express-async-handler");

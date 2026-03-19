@@ -1,4 +1,4 @@
-const clusteAuditdao = require("../dao/cluterAudit-dao");
+const clusteAuditdao = require("../dao/cluter-audit-dao");
 const asyncHandler = require("express-async-handler");
 
 exports.getclusterVisits = asyncHandler(async (req, res) => {

@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth.middleware');
-const userAuthEp = require('../end-point/userAuth-ep');
+const auth = require('../middleware/auth-middleware');
+const userAuthEp = require('../end-point/user-auth-ep');
 
 router.post('/login', userAuthEp.login);
 

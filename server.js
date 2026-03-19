@@ -2,13 +2,6 @@ const express = require("express");
 const cors = require("cors");
 const bodyParser = require("body-parser");
 require("dotenv").config();
-const {
-  plantcare,
-  collectionofficer,
-  marketPlace,
-  admin,
-  investments,
-} = require("./startup/database");
 
 const app = express();
 
@@ -25,48 +18,17 @@ app.options("*", cors(corsOptions));
 app.use(bodyParser.json({ limit: "10mb" }));
 app.use(bodyParser.urlencoded({ limit: "10mb", extended: true }));
 
-app.get([`${BASE_PATH}/health`, `${BASE_PATH}/healthz`], (req, res) => {
-  res.status(200).json({
-    status: "ok",
-    timestamp: new Date(),
-    uptime: process.uptime(),
-    service: "GoLink API",
-    environment: process.env.NODE_ENV || "development",
-  });
-});
+// Routes
+const userroute = require("./routes/user-routes.js");
+const officerroutes = require("./routes/officer-routes.js");
+const clusterauditroutes = require("./routes/cluste-audit-routes.js");
+const requestauditroutes = require("./routes/request-audit-routes.js");
+const complaintroutes = require("./routes/complaint-routes.js");
+const assignjobsroutes = require("./routes/assign-jobs-routes.js");
+const capitalRequest = require("./routes/capital-request-routes.js");
+const healthRoutes = require("./routes/health-routes.js");
 
-const DatabaseConnection = (db, name) => {
-  db.getConnection((err, connection) => {
-    if (err) {
-      console.error(`Error getting connection from ${name}:`, err);
-    } else {
-      connection.ping((err) => {
-        if (err) {
-          console.error(`Error pinging ${name} database:`, err);
-        } else {
-          console.log(`Ping to ${name} database successful.`);
-        }
-        connection.release();
-      });
-    }
-  });
-};
-
-// Initial database connections
-DatabaseConnection(plantcare, "PlantCare");
-DatabaseConnection(collectionofficer, "CollectionOfficer");
-DatabaseConnection(marketPlace, "MarketPlace");
-DatabaseConnection(admin, "Admin");
-DatabaseConnection(investments, "Investments");
-
-const userroute = require("./routes/user.routes.js");
-const officerroutes = require("./routes/officer.routes.js");
-const clusterauditroutes = require("./routes/clusteaudit.routes.js");
-const requestauditroutes = require("./routes/requestaudit.routes.js");
-const complaintroutes = require("./routes/complaint.routes.js");
-const assignjobsroutes = require("./routes/assignjobs.routes.js");
-const capitalRequest = require("./routes/capitalrequest.routes.js");
-
+app.use(BASE_PATH, healthRoutes);
 app.use(`${BASE_PATH}/api/auth`, userroute);
 app.use(`${BASE_PATH}/api/officer`, officerroutes);
 app.use(`${BASE_PATH}/api/cluster-audit`, clusterauditroutes);
@@ -75,10 +37,16 @@ app.use(`${BASE_PATH}/api/complaint`, complaintroutes);
 app.use(`${BASE_PATH}/api/assign-jobs`, assignjobsroutes);
 app.use(`${BASE_PATH}/api/capital-request`, capitalRequest);
 
+// Error handling middleware
 app.use((err, req, res, next) => {
   console.error(err.stack);
-  res.status(500).send("Something broke!");
+  res.status(500).json({
+    error: "Internal Server Error",
+    message: err.message,
+    timestamp: new Date(),
+  });
 });
+
 // Start server
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {

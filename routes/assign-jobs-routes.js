@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const auth = require('../middleware/auth.middleware');
-const assignJobsEp = require('../end-point/assignJobs-ep');
+const auth = require('../middleware/auth-middleware');
+const assignJobsEp = require('../end-point/assign-jobs-ep');
 
 router.get('/visits/:date',auth, assignJobsEp.getVisitsbydate);
 

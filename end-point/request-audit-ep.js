@@ -1,4 +1,4 @@
-const requestAuditDao = require("../dao/requestAudit-dao");
+const requestAuditDao = require("../dao/request-audit-dao");
 const asyncHandler = require("express-async-handler");
 const uploadFileToR2 = require("../middleware/s3upload");
 const delectfilesOnR2 = require("../middleware/s3delete");
