@@ -1,4 +1,4 @@
-const assignJobsdao = require("../dao/assignJobs-dao");
+const assignJobsdao = require("../dao/assign-jobs-dao");
 const asyncHandler = require("express-async-handler");
 const jwt = require("jsonwebtoken");
 

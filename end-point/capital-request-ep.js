@@ -1,4 +1,4 @@
-const capitalRequesDao = require("../dao/capitalRequest-dao");
+const capitalRequesDao = require("../dao/capital-request-dao");
 const asyncHandler = require("express-async-handler");
 
 exports.getRequests = asyncHandler(async (req, res) => {
