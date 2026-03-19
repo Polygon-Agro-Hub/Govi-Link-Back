@@ -9,23 +9,28 @@ exports.loginUser = async (empId, password) => {
       WHERE empId = ?
     `;
     const [results] = await db.plantcare.promise().query(sql, [empId]);
+
     if (results.length === 0) {
       throw new Error("User not found");
     }
 
     const user = results[0];
-    const isPasswordValid = await bcrypt.compare(password, user.password);
-    if (!isPasswordValid) {
-      throw new Error("Invalid password");
-    }
+
     if (user.status === "Rejected") {
       throw new Error("This Employee ID is Rejected");
     }
+
     if (user.status === "Not Approved") {
       throw new Error("User not approved");
     }
+
     if (user.status !== "Approved") {
       throw new Error("User not approved");
+    }
+
+    const isPasswordValid = await bcrypt.compare(password, user.password);
+    if (!isPasswordValid) {
+      throw new Error("Invalid password");
     }
 
     return {
