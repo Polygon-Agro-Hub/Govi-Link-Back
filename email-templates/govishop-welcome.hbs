@@ -1,0 +1,154 @@
+<html>
+  <head>
+    <meta charset="UTF-8" />
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        background: #f5f5f5;
+        margin: 0;
+        padding: 0;
+      }
+      .wrapper {
+        max-width: 480px;
+        margin: 30px auto;
+        background: #ffffff;
+        border-radius: 10px;
+        overflow: hidden;
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+      }
+      .logo-area {
+        text-align: center;
+        padding: 24px 0 10px;
+      }
+      .logo-area img {
+        width: 80px;
+        height: auto;
+      }
+      .brand-text {
+        font-size: 13px;
+        color: #e87722;
+        font-weight: bold;
+        margin-top: 4px;
+      }
+      .content {
+        padding: 24px 32px;
+      }
+      h2 {
+        color: #1a1a1a;
+        font-size: 17px;
+        text-align: center;
+        margin-bottom: 20px;
+      }
+      p {
+        color: #333;
+        font-size: 14px;
+        line-height: 1.6;
+        margin: 6px 0;
+      }
+      .credentials-box {
+        background: #fff3e0;
+        border-radius: 6px;
+        padding: 14px 18px;
+        margin: 18px 0;
+      }
+      .credentials-box p {
+        margin: 4px 0;
+        font-size: 14px;
+        color: #333;
+      }
+      .btn-wrap {
+        margin: 24px 0 10px;
+      }
+      .link-fallback {
+        font-size: 12px;
+        color: #555;
+        margin-top: 12px;
+        word-break: break-all;
+      }
+      .link-fallback a {
+        color: #3177ff;
+      }
+      .footer {
+        background: #f9f9f9;
+        text-align: center;
+        padding: 14px;
+        font-size: 11px;
+        color: #999;
+        border-top: 1px solid #eee;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="wrapper">
+
+      <!-- Logo -->
+      <div class="logo-area">
+        <img src="cid:govishop_logo" alt="GoViShop" />
+      </div>
+
+      <div class="content">
+        <h2>Welcome to GoViShop – Your Standard Plan is Activated</h2>
+
+        <p>Dear <strong>{{supplierName}}</strong>,</p>
+        <p>Warm greetings from GoViShop!</p>
+        <p>We are pleased to inform you that your
+          <strong>Standard Plan</strong>
+          has been successfully activated, and your account has been created.</p>
+        <p>Welcome to the GoViShop community! You can now start exploring our
+          platform and enjoy the features available under your plan.</p>
+        <p>Your login details are as follows:</p>
+
+        <div class="credentials-box">
+          <p>Username: <strong>{{contact}} / {{email}}</strong></p>
+          <p>Temporary Password: <strong>{{tempPassword}}</strong></p>
+        </div>
+
+        <p>For security reasons, we strongly recommend that you change your
+          password after your first login.</p>
+        <p>To get started, simply log in using the link below:</p>
+
+        <!-- ── Gradient Login Button ── -->
+        <div class="btn-wrap">
+
+          <a
+            href="{{loginUrl}}"
+            style="
+             background: linear-gradient(to right, #F97316, #FF9829);
+             color: #ffffff;
+             text-decoration: none;
+             padding: 14px 0;
+             border-radius: 6px;
+             font-size: 15px;
+             font-weight: bold;
+             display: block;
+             text-align: center;
+             width: 100%;
+             box-sizing: border-box;
+           "
+          >
+            Login
+          </a>
+          <!--<![endif]-->
+        </div>
+
+        <p class="link-fallback">
+          If the button doesn't work, copy and paste the link into your browser:<br
+          />
+          <a href="{{loginUrl}}">{{loginUrl}}</a>
+        </p>
+
+        <br />
+        <p>Thank you,</p>
+        <p><strong>GoViShop Team</strong></p>
+      </div>
+
+      <div class="footer">
+        ©
+        {{year}}
+        Polygon Holdings Limited. All Rights Reserved.<br />
+        Please note that this is an automated message.
+      </div>
+
+    </div>
+  </body>
+</html>

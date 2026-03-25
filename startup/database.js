@@ -24,6 +24,7 @@ const collectionofficer = createPool(process.env.DB_NAME_CO);
 const marketPlace = createPool(process.env.DB_NAME_MP);
 const admin = createPool(process.env.DB_NAME_AD);
 const investments = createPool(process.env.DB_NAME_INV);
+const govishop = createPool(process.env.DB_NAME_GS)
 
 module.exports = {
   plantcare,
@@ -31,4 +32,5 @@ module.exports = {
   marketPlace,
   admin,
   investments,
+  govishop
 };
