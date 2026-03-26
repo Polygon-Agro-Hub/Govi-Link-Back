@@ -27,6 +27,7 @@ const complaintroutes = require("./routes/complaint-routes.js");
 const assignjobsroutes = require("./routes/assign-jobs-routes.js");
 const capitalRequest = require("./routes/capital-request-routes.js");
 const healthRoutes = require("./routes/health-routes.js");
+const onboardsupplierRoutes = require("./routes/onboard-supplier-routes.js");
 
 app.use(BASE_PATH, healthRoutes);
 app.use(`${BASE_PATH}/api/auth`, userroute);
@@ -36,6 +37,7 @@ app.use(`${BASE_PATH}/api/request-audit`, requestauditroutes);
 app.use(`${BASE_PATH}/api/complaint`, complaintroutes);
 app.use(`${BASE_PATH}/api/assign-jobs`, assignjobsroutes);
 app.use(`${BASE_PATH}/api/capital-request`, capitalRequest);
+app.use(`${BASE_PATH}/api/onboard-supplier`, onboardsupplierRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
