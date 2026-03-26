@@ -7,6 +7,7 @@ const app = express();
 
 const BASE_PATH = "/govilink";
 
+// CORS configuration
 const corsOptions = {
   origin: process.env.CLIENT_ORIGIN || "http://localhost:8081",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
