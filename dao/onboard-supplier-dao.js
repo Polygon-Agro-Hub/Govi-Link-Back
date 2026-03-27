@@ -15,26 +15,73 @@ exports.createSupplier = (supplierName, contact, email, nic) => {
     return new Promise(async (resolve, reject) => {
         try {
             const tempPassword = generateTempPassword();
-
             const hashedPassword = await bcrypt.hash(tempPassword, 10);
 
-            const sql = `
-        INSERT INTO shopowners 
-          (ownername, shopPhone, email, nic, password, isPasswordChanged, isAvailable, isActivated, currentPlan, accessStatus ,onbordStatus,activatedAt, createdAt)
-        VALUES 
-          (?, ?, ?, ?, ?, 0, 1, 'active', 'Standard', 'Free Access', 'GoviLink', NOW(), NOW())
-      `;
+            const now = new Date();
+            const yy = String(now.getFullYear()).slice(-2);
+            const mm = String(now.getMonth() + 1).padStart(2, "0");
+            const dd = String(now.getDate()).padStart(2, "0");
+            const datePrefix = `GSID${yy}${mm}${dd}`;
+
+            const insertSql = `
+                INSERT INTO shopowners 
+                    (ownername, shopPhone, email, nic, password, isPasswordChanged, isAvailable,
+                     isActivated, currentPlan, accessStatus, onbordStatus, activatedAt, createdAt)
+                VALUES 
+                    (?, ?, ?, ?, ?, 0, 1, 'active', 'Standard', 'Free Access', 'GoviLink', NOW(), NOW())
+            `;
 
             db.govishop.query(
-                sql,
+                insertSql,
                 [supplierName, contact, email, nic, hashedPassword],
-                (err, result) => {
-                    if (err) {
-                        console.error("DB Error:", err);
-                        return reject(err);
+                (insertErr, insertResult) => {
+                    if (insertErr) {
+                        console.error("DB Insert Error:", insertErr);
+                        return reject(insertErr);
                     }
 
-                    resolve({ insertId: result.insertId, tempPassword });
+                    const newId = insertResult.insertId;
+
+                    const seqSql = `
+                        SELECT regCode 
+                        FROM shopowners 
+                        WHERE regCode LIKE ? 
+                        ORDER BY regCode DESC 
+                        LIMIT 1
+                    `;
+
+                    db.govishop.query(seqSql, [`${datePrefix}%`], (seqErr, seqResult) => {
+                        if (seqErr) {
+                            console.error("DB Sequence Error:", seqErr);
+                            return reject(seqErr);
+                        }
+
+                        let nextSeq = 1;
+                        if (seqResult.length > 0 && seqResult[0].regCode) {
+                            const lastCode = seqResult[0].regCode;
+                            const lastSeq = parseInt(lastCode.slice(-3), 10);
+                            if (!isNaN(lastSeq)) {
+                                nextSeq = lastSeq + 1;
+                            }
+                        }
+
+                        const regCode = `${datePrefix}${String(nextSeq).padStart(3, "0")}`;
+
+                        const updateSql = `
+                                UPDATE shopowners 
+                                SET regCode = ? 
+                                WHERE id = ?
+                            `;
+
+                        db.govishop.query(updateSql, [regCode, newId], (updateErr) => {
+                            if (updateErr) {
+                                console.error("DB Update regCode Error:", updateErr);
+                                return reject(updateErr);
+                            }
+
+                            resolve({ insertId: newId, tempPassword, regCode });
+                        });
+                    });
                 },
             );
         } catch (err) {
