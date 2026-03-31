@@ -266,3 +266,22 @@ exports.confirmAndLeaveRequest = asyncHandler(async (req, res) => {
     });
   }
 });
+
+exports.updateOfficerStatus = asyncHandler(async (req, res) => {
+  const requesId = req.params.id;
+
+  try {
+    const result = await capitalRequesDao.updateOfficerStatus(requesId);
+
+    res.status(200).json({
+      status: "success",
+      data: result,
+    });
+  } catch (error) {
+    console.error("Error updating status:", error);
+    res.status(500).json({
+      status: "error",
+      message: error.message,
+    });
+  }
+});

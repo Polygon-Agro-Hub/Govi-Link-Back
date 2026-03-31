@@ -11,7 +11,7 @@ const generateTempPassword = () => {
     return password;
 };
 
-exports.createSupplier = (supplierName, contact, email, nic) => {
+exports.createSupplier = (supplierName, contact, email, nic, officerId) => {
     return new Promise(async (resolve, reject) => {
         try {
             const tempPassword = generateTempPassword();
@@ -26,14 +26,14 @@ exports.createSupplier = (supplierName, contact, email, nic) => {
             const insertSql = `
                 INSERT INTO shopowners 
                     (ownername, shopPhone, email, nic, password, isPasswordChanged, isAvailable,
-                     isActivated, currentPlan, accessStatus, onbordStatus, activatedAt, createdAt)
+                     isActivated, currentPlan, accessStatus, onbordStatus,onbordedOfficer, activatedAt, createdAt)
                 VALUES 
-                    (?, ?, ?, ?, ?, 0, 1, 'active', 'Standard', 'Free Access', 'GoviLink', NOW(), NOW())
+                    (?, ?, ?, ?, ?, 0, 1, 'active', 'Standard', 'Free Access', 'GoviLink',?, NOW(), NOW())
             `;
 
             db.govishop.query(
                 insertSql,
-                [supplierName, contact, email, nic, hashedPassword],
+                [supplierName, contact, email, nic, hashedPassword, officerId],
                 (insertErr, insertResult) => {
                     if (insertErr) {
                         console.error("DB Insert Error:", insertErr);
