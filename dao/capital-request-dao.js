@@ -406,7 +406,8 @@ exports.updateAuditedDate = async (reqId) => {
 
       const query = `
         UPDATE investmentrequest 
-        SET auditedDate = NOW() 
+        SET auditedDate = NOW(),
+            officerStatus = 'Completed'
         WHERE id = ?
       `;
 
@@ -436,3 +437,19 @@ exports.updateAuditedDate = async (reqId) => {
 exports.isValidTable = isValidTable;
 exports.VALID_TABLES = VALID_TABLES;
 exports.FILE_UPLOAD_TABLES = FILE_UPLOAD_TABLES;
+
+exports.updateOfficerStatus = async (requestId) => {
+  return new Promise((resolve, reject) => {
+    const sql = `UPDATE investmentrequest SET officerStatus = 'Ongoing' WHERE id = ?`;
+
+    db.investments.query(sql, [requestId], (err, results) => {
+      if (err) {
+        return reject(err);
+      }
+      if (results.affectedRows === 0) {
+        return reject(new Error(`No record found with id: ${requestId}`));
+      }
+      resolve(results);
+    });
+  });
+};

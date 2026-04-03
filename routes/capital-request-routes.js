@@ -5,21 +5,23 @@ const capitaRequestEp = require('../end-point/capital-request-ep');
 const multer = require('multer');
 const upload = multer({ storage: multer.memoryStorage() });
 
-router.get('/requests',auth,capitaRequestEp.getRequests );
+router.get('/requests', auth, capitaRequestEp.getRequests);
 
-router.get('/requests/:id',auth,capitaRequestEp.getRequestByid );
+router.get('/requests/:id', auth, capitaRequestEp.getRequestByid);
 
 router.post('/inspection/save', upload.fields([
-    { name: 'frontImg', maxCount: 1 },
-    { name: 'backImg', maxCount: 1 },
-    { name: 'images', maxCount: 10 },
-    { name: 'waterImage', maxCount: 5 } 
-  ]), capitaRequestEp.saveInspectionData);
+  { name: 'frontImg', maxCount: 1 },
+  { name: 'backImg', maxCount: 1 },
+  { name: 'images', maxCount: 10 },
+  { name: 'waterImage', maxCount: 5 }
+]), capitaRequestEp.saveInspectionData);
 
 router.get('/inspection/get', capitaRequestEp.getInspectionData);
 
 router.delete('/inspection/delete/:reqId', capitaRequestEp.deleteInspectionData);
 
 router.patch('/confirm-leave/:reqId', capitaRequestEp.confirmAndLeaveRequest);
+
+router.put('/update-officer-status/:id', auth, capitaRequestEp.updateOfficerStatus);
 
 module.exports = router;

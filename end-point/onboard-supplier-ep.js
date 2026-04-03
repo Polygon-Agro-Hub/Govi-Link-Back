@@ -5,6 +5,7 @@ const asyncHandler = require("express-async-handler");
 exports.createSupplier = asyncHandler(async (req, res) => {
     try {
         const { supplierName, contact, email, nic } = req.body;
+        const officerId = req.user.id;
 
         if (!supplierName || !contact || !email || !nic) {
             return res.status(400).json({
@@ -18,6 +19,7 @@ exports.createSupplier = asyncHandler(async (req, res) => {
             contact,
             email,
             nic,
+            officerId
         );
 
         try {
