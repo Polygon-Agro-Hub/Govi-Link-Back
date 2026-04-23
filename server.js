@@ -30,6 +30,7 @@ const capitalRequest = require("./routes/capital-request-routes.js");
 const healthRoutes = require("./routes/health-routes.js");
 const onboardsupplierRoutes = require("./routes/onboard-supplier-routes.js");
 
+// API Routes
 app.use(BASE_PATH, healthRoutes);
 app.use(`${BASE_PATH}/api/auth`, userroute);
 app.use(`${BASE_PATH}/api/officer`, officerroutes);
