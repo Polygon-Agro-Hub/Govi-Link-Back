@@ -23,6 +23,7 @@ exports.login = asyncHandler(async (req, res) => {
         success: false,
         message: "This Employee ID is Rejected",
         status: result.status,
+        statusType: "rejected",
       });
     }
     if (result.status === "Not Approved") {
@@ -30,6 +31,15 @@ exports.login = asyncHandler(async (req, res) => {
         success: false,
         message: "User not approved",
         status: result.status,
+        statusType: "not_approved",
+      });
+    }
+    if (result.status === "Pending") {
+      return res.status(403).json({
+        success: false,
+        message: "Account status is pending verification",
+        status: result.status,
+        statusType: "pending",
       });
     }
     const payload = {
@@ -65,6 +75,22 @@ exports.login = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     console.error("Login failed:", err.message);
+    let statusType;
+    if (err.message === "This Employee ID is Rejected") {
+      statusType = "rejected";
+    } else if (err.message === "User not approved") {
+      statusType = "not_approved";
+    } else if (err.message === "Account status is pending verification") {
+      statusType = "pending";
+    }
+
+    if (statusType) {
+      return res.status(403).json({
+        success: false,
+        message: err.message,
+        statusType,
+      });
+    }
     return res.status(401).json({ success: false, message: err.message });
   }
 });
