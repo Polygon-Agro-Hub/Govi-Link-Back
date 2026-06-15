@@ -24,6 +24,10 @@ exports.loginUser = async (empId, password) => {
       throw new Error("User not approved");
     }
 
+    if (user.status === "Pending") {
+      throw new Error("Account status is pending verification");
+    }
+
     if (user.status !== "Approved") {
       throw new Error("User not approved");
     }
