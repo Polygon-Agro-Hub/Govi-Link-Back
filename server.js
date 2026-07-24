@@ -14,6 +14,7 @@ const corsOptions = {
   credentials: true,
 };
 
+// Middleware
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(bodyParser.json({ limit: "10mb" }));
