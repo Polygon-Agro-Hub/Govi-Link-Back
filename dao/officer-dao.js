@@ -1017,14 +1017,74 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
       SELECT * FROM (
         SELECT 
           fau.jobId, fau.id, fau.propose, NULL AS serviceenglishName, NULL AS servicesinhalaName, NULL AS servicetamilName,
-          fau.status,
+          CASE
+            WHEN cp.clusterId IS NOT NULL
+                 AND fau.status <> 'Completed'
+                 AND EXISTS (
+                   SELECT 1
+                   FROM feildauditcluster AS fauc2
+                   INNER JOIN farms AS f2 ON f2.id = fauc2.farmId
+                   INNER JOIN farmclusterfarmers AS fcf2 
+                     ON fcf2.farmId = f2.id AND fcf2.clusterId = cp.clusterId
+                   INNER JOIN slavequestionnaire AS sq2 ON sq2.clusterFarmId = fcf2.id
+                   LEFT JOIN slavequestionnaireitems AS slqi2 ON slqi2.slaveId = sq2.id
+                   LEFT JOIN jobsuggestions AS js2 ON js2.slaveId = sq2.id
+                   WHERE fauc2.feildAuditId = fau.id
+                     AND (
+                       slqi2.officerTickResult = 1
+                       OR (slqi2.officerUploadImage IS NOT NULL AND slqi2.officerUploadImage <> '')
+                       OR js2.id IS NOT NULL
+                     )
+                 )
+            THEN 'Ongoing'
+            ELSE fau.status
+          END AS status,
           "feildaudits" AS auditType,
           CASE WHEN cp.userId IS NOT NULL THEN CONCAT(ps.firstName,' ',ps.lastName) 
                WHEN cp.clusterId IS NOT NULL THEN fc.clsName END AS farmerName,
           CASE WHEN cp.userId IS NOT NULL THEN ps.phoneNumber END AS farmerMobile,
           CASE WHEN cp.userId IS NOT NULL THEN cp.userId END AS farmerId,
-          CASE WHEN cp.payType='Crop' THEN ocs.longitude END AS longitude,
-          CASE WHEN cp.payType='Crop' THEN ocs.latitude END AS latitude,
+
+          CASE 
+            WHEN cp.payType = 'Crop' THEN (
+              SELECT ocsC.longitude
+              FROM ongoingcultivationscrops AS ocsC
+              INNER JOIN ongoingcultivations AS ocC ON ocsC.ongoingCultivationId = ocC.id
+              WHERE ocC.userId = cp.userId
+                AND ocsC.longitude IS NOT NULL
+              ORDER BY ocsC.startedAt DESC
+              LIMIT 1
+            )
+            WHEN cp.payType = 'Farm' THEN (
+              SELECT ocsF.longitude
+              FROM ongoingcultivationscrops AS ocsF
+              WHERE ocsF.farmId = cpf.farmId
+                AND ocsF.longitude IS NOT NULL
+              ORDER BY ocsF.startedAt DESC
+              LIMIT 1
+            )
+          END AS longitude,
+
+          CASE 
+            WHEN cp.payType = 'Crop' THEN (
+              SELECT ocsC.latitude
+              FROM ongoingcultivationscrops AS ocsC
+              INNER JOIN ongoingcultivations AS ocC ON ocsC.ongoingCultivationId = ocC.id
+              WHERE ocC.userId = cp.userId
+                AND ocsC.latitude IS NOT NULL
+              ORDER BY ocsC.startedAt DESC
+              LIMIT 1
+            )
+            WHEN cp.payType = 'Farm' THEN (
+              SELECT ocsF.latitude
+              FROM ongoingcultivationscrops AS ocsF
+              WHERE ocsF.farmId = cpf.farmId
+                AND ocsF.latitude IS NOT NULL
+              ORDER BY ocsF.startedAt DESC
+              LIMIT 1
+            )
+          END AS latitude,
+
           CASE 
             WHEN cp.clusterId IS NOT NULL THEN fc.district
             WHEN cp.payType = 'Crop' THEN fcrop.district
@@ -1076,8 +1136,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
         LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
         LEFT JOIN certificationpaymentcrop AS cpc ON cp.id = cpc.paymentId
         LEFT JOIN certificationpaymentfarm AS cpf ON cp.id = cpf.paymentId
-        LEFT JOIN ongoingcultivationscrops AS ocs ON cpc.cropId = ocs.id
-        LEFT JOIN farms AS fcrop ON ocs.farmId = fcrop.id
+        LEFT JOIN farms AS fcrop ON cpc.cropId = fcrop.id
         LEFT JOIN farms AS ffarm ON cpf.farmId = ffarm.id
         WHERE fau.assignOfficerId = ?
           AND ${dateCondition}
@@ -1092,7 +1151,24 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
           glj.status,
           "govilinkjobs" AS auditType,
           CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
-          NULL AS longitude, NULL AS latitude,
+
+          (
+            SELECT ocsR.longitude
+            FROM ongoingcultivationscrops AS ocsR
+            WHERE ocsR.farmId = glj.farmId
+              AND ocsR.longitude IS NOT NULL
+            ORDER BY ocsR.startedAt DESC
+            LIMIT 1
+          ) AS longitude,
+          (
+            SELECT ocsR.latitude
+            FROM ongoingcultivationscrops AS ocsR
+            WHERE ocsR.farmId = glj.farmId
+              AND ocsR.latitude IS NOT NULL
+            ORDER BY ocsR.startedAt DESC
+            LIMIT 1
+          ) AS latitude,
+
           f.district, f.plotNo, f.street, f.city, f.id AS farmId,
           NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
           glj.sheduleDate,

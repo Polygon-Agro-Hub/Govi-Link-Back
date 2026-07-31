@@ -7,13 +7,13 @@ const app = express();
 
 const BASE_PATH = "/govilink";
 
-// CORS configuration
 const corsOptions = {
   origin: process.env.CLIENT_ORIGIN || "http://localhost:8081",
   methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
   credentials: true,
 };
 
+// Middleware
 app.use(cors(corsOptions));
 app.options("*", cors(corsOptions));
 app.use(bodyParser.json({ limit: "10mb" }));
@@ -30,7 +30,6 @@ const capitalRequest = require("./routes/capital-request-routes.js");
 const healthRoutes = require("./routes/health-routes.js");
 const onboardsupplierRoutes = require("./routes/onboard-supplier-routes.js");
 
-// Register routes with base path
 app.use(BASE_PATH, healthRoutes);
 app.use(`${BASE_PATH}/api/auth`, userroute);
 app.use(`${BASE_PATH}/api/officer`, officerroutes);
