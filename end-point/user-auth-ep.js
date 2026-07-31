@@ -1,10 +1,9 @@
-const userDao = require("../dao/userAuth-dao");
+const userDao = require("../dao/user-auth-dao");
 const jwt = require("jsonwebtoken");
-const { loginSchema } = require("../Validations/Auth-validations");
+const { loginSchema } = require("../validation/auth-validations");
 const asyncHandler = require("express-async-handler");
 
 exports.login = asyncHandler(async (req, res) => {
-  console.log("hit login");
   const { error } = loginSchema.validate(req.body, { abortEarly: false });
   console.log(error);
 
@@ -17,28 +16,32 @@ exports.login = asyncHandler(async (req, res) => {
   }
 
   const { empId, password } = req.body;
-  console.log("Login request received:", req.body);
-
   try {
     const result = await userDao.loginUser(empId, password);
-    console.log("User login successful:", result);
-
     if (result.status === "Rejected") {
       return res.status(403).json({
         success: false,
         message: "This Employee ID is Rejected",
         status: result.status,
+        statusType: "rejected",
       });
     }
-
     if (result.status === "Not Approved") {
       return res.status(403).json({
         success: false,
         message: "User not approved",
         status: result.status,
+        statusType: "not_approved",
       });
     }
-
+    if (result.status === "Pending") {
+      return res.status(403).json({
+        success: false,
+        message: "Account status is pending verification",
+        status: result.status,
+        statusType: "pending",
+      });
+    }
     const payload = {
       empId: result.empId,
       id: result.id,
@@ -55,7 +58,7 @@ exports.login = asyncHandler(async (req, res) => {
       httpOnly: true,
       secure: process.env.NODE_ENV === "production",
       sameSite: "Strict",
-      maxAge: 8 * 60 * 60 * 1000, // 8 hours
+      maxAge: 8 * 60 * 60 * 1000,
     });
 
     return res.status(200).json({
@@ -72,12 +75,27 @@ exports.login = asyncHandler(async (req, res) => {
     });
   } catch (err) {
     console.error("Login failed:", err.message);
+    let statusType;
+    if (err.message === "This Employee ID is Rejected") {
+      statusType = "rejected";
+    } else if (err.message === "User not approved") {
+      statusType = "not_approved";
+    } else if (err.message === "Account status is pending verification") {
+      statusType = "pending";
+    }
+
+    if (statusType) {
+      return res.status(403).json({
+        success: false,
+        message: err.message,
+        statusType,
+      });
+    }
     return res.status(401).json({ success: false, message: err.message });
   }
 });
 
 exports.getprofile = asyncHandler(async (req, res) => {
-  console.log("get profile");
   const officerId = req.user?.id;
   if (!officerId) {
     return res
@@ -106,8 +124,8 @@ exports.getprofile = asyncHandler(async (req, res) => {
     });
   }
 });
+
 exports.getmyprofile = asyncHandler(async (req, res) => {
-  console.log("get profile");
   const officerId = req.user.id;
   if (!officerId) {
     return res
@@ -140,7 +158,6 @@ exports.getmyprofile = asyncHandler(async (req, res) => {
 exports.changePassword = asyncHandler(async (req, res) => {
   const officerId = req.user.id;
   const { currentPassword, newPassword } = req.body;
-  console.log("Hit change password");
 
   try {
     const result = await userDao.changePassword(
@@ -155,7 +172,6 @@ exports.changePassword = asyncHandler(async (req, res) => {
   } catch (error) {
     console.error("Error changing password:", error.message);
 
-    // Custom error handling
     if (error.message === "Current password is incorrect") {
       return res.status(401).json({
         status: "error",
@@ -170,7 +186,6 @@ exports.changePassword = asyncHandler(async (req, res) => {
       });
     }
 
-    // Default to 400 for other errors
     res.status(400).json({
       status: "error",
       message: error.message,
@@ -179,7 +194,6 @@ exports.changePassword = asyncHandler(async (req, res) => {
 });
 
 exports.getCFODistricts = asyncHandler(async (req, res) => {
-  console.log("get officer distritcs");
   const officerId = req.user.id;
   if (!officerId) {
     return res
