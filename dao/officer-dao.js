@@ -986,6 +986,8 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     const selectedDateString = formatDate(date);
     const isOverdue =
       isOverdueSelected === true || isOverdueSelected === "true";
+
+    // Unchanged for feildaudits
     const dateCondition = isOverdue
       ? `
         DATE(fau.sheduleDate) < DATE(CURDATE()) 
@@ -1009,9 +1011,10 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
       `
       : "DATE(fau.sheduleDate) = ? AND (fau.status = 'Pending' OR fau.status = 'Ongoing' OR fau.status = 'Completed')";
 
+    // Updated specifically for govilinkjobs
     const gljDateCondition = isOverdue
-      ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND (glj.status = 'Pending' OR glj.status = 'Ongoing')"
-      : "DATE(glj.sheduleDate) = ? AND jao.isActive = 1 AND (glj.status = 'Pending' OR glj.status = 'Ongoing' OR glj.status = 'Completed')";
+      ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND (glj.status = 'Assigned' OR glj.status = 'Ongoing')"
+      : "DATE(glj.sheduleDate) = ? AND jao.isActive = 1 AND (glj.status = 'Assigned' OR glj.status = 'Ongoing' OR glj.status = 'Completed')";
 
     const sql = `
       SELECT * FROM (
