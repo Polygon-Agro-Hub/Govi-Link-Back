@@ -53,7 +53,7 @@ exports.loginUser = async (empId, password) => {
 exports.getprofile = async (officerId) => {
   return new Promise((resolve, reject) => {
     let sql = `
-      SELECT empId, JobRole AS role,status, firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg
+      SELECT empId, JobRole AS role,status, firstName, firstNameSinhala,firstNameTamil, lastName, lastNameSinhala, lastNameTamil, profile as profileImg ,passwordUpdated
       FROM feildofficer
       WHERE id = ?
       `;

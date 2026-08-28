@@ -35,7 +35,7 @@ exports.getOfficerVisits = asyncHandler(async (req, res) => {
       status: "success",
       data: officerVisits,
     });
-  } catch {}
+  } catch { }
 });
 
 exports.getOfficerVisitsDraft = asyncHandler(async (req, res) => {
