@@ -49,8 +49,44 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
                WHEN cp.clusterId IS NOT NULL THEN fc.clsName END AS farmerName,
           CASE WHEN cp.userId IS NOT NULL THEN ps.phoneNumber END AS farmerMobile,
           CASE WHEN cp.userId IS NOT NULL THEN cp.userId END AS farmerId,
-          CASE WHEN cp.payType='Crop' THEN ocs.longitude END AS longitude,
-          CASE WHEN cp.payType='Crop' THEN ocs.latitude END AS latitude,
+          CASE 
+            WHEN cp.payType = 'Crop' THEN (
+              SELECT ocsC.longitude
+              FROM ongoingcultivationscrops AS ocsC
+              INNER JOIN ongoingcultivations AS ocC ON ocsC.ongoingCultivationId = ocC.id
+              WHERE ocC.userId = cp.userId
+                AND ocsC.longitude IS NOT NULL
+              ORDER BY ocsC.startedAt DESC
+              LIMIT 1
+            )
+            WHEN cp.payType = 'Farm' THEN (
+              SELECT ocsF.longitude
+              FROM ongoingcultivationscrops AS ocsF
+              WHERE ocsF.farmId = cpf.farmId
+                AND ocsF.longitude IS NOT NULL
+              ORDER BY ocsF.startedAt DESC
+              LIMIT 1
+            )
+          END AS longitude,
+          CASE 
+            WHEN cp.payType = 'Crop' THEN (
+              SELECT ocsC.latitude
+              FROM ongoingcultivationscrops AS ocsC
+              INNER JOIN ongoingcultivations AS ocC ON ocsC.ongoingCultivationId = ocC.id
+              WHERE ocC.userId = cp.userId
+                AND ocsC.latitude IS NOT NULL
+              ORDER BY ocsC.startedAt DESC
+              LIMIT 1
+            )
+            WHEN cp.payType = 'Farm' THEN (
+              SELECT ocsF.latitude
+              FROM ongoingcultivationscrops AS ocsF
+              WHERE ocsF.farmId = cpf.farmId
+                AND ocsF.latitude IS NOT NULL
+              ORDER BY ocsF.startedAt DESC
+              LIMIT 1
+            )
+          END AS latitude,
         CASE 
           WHEN cp.clusterId IS NOT NULL THEN fc.district
           WHEN cp.payType = 'Crop' THEN fcrop.district
@@ -119,7 +155,22 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
           glj.status,
           "govilinkjobs" AS auditType,
           CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
-          NULL AS longitude, NULL AS latitude,
+          (
+            SELECT ocsR.longitude
+            FROM ongoingcultivationscrops AS ocsR
+            WHERE ocsR.farmId = glj.farmId
+              AND ocsR.longitude IS NOT NULL
+            ORDER BY ocsR.startedAt DESC
+            LIMIT 1
+          ) AS longitude,
+          (
+            SELECT ocsR.latitude
+            FROM ongoingcultivationscrops AS ocsR
+            WHERE ocsR.farmId = glj.farmId
+              AND ocsR.latitude IS NOT NULL
+            ORDER BY ocsR.startedAt DESC
+            LIMIT 1
+          ) AS latitude,
           f.district, f.plotNo, f.street, f.city, f.id AS farmId,
           NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
           glj.sheduleDate,
@@ -557,7 +608,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     reject(
                       new Error(
                         "Database error deactivating existing assignments: " +
-                          err.message,
+                        err.message,
                       ),
                     );
                   } else {
@@ -590,7 +641,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
                     reject(
                       new Error(
                         "Database error inserting reassigned assignments: " +
-                          err.message,
+                        err.message,
                       ),
                     );
                   } else {
