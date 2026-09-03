@@ -3,6 +3,7 @@ const router = express.Router();
 const auth = require('../middleware/auth-middleware');
 const officerEp = require('../end-point/officer-ep');
 const upload = require('../middleware/multer-middleware');
+const checkProfanity = require('../middleware/profanity.middleware');
 
 router.get('/officer-visits',auth, officerEp.getOfficerVisits);
 
@@ -16,11 +17,11 @@ router.delete("/remove-photo-proof/:id", officerEp.removePhotoProof);
 
 router.get('/officer-visits-draft',auth, officerEp.getOfficerVisitsDraft);
 
-router.post('/save-problem', auth, officerEp.setsaveProblem);
+router.post('/save-problem', auth, checkProfanity(['problem', 'solution']), officerEp.setsaveProblem);
 
 router.get("/get-problems/:slaveId", auth, officerEp.getProblemsSolutionsById );
 
-router.put("/update-problem/:id", auth, officerEp.updateProblem);
+router.put("/update-problem/:id", auth, checkProfanity(['problem', 'solution']), officerEp.updateProblem);
 
 router.put('/complete/:id', auth, officerEp.setcomplete);
 
