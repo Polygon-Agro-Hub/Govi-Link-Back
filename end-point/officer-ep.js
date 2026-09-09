@@ -340,7 +340,9 @@ exports.getFieldOfficers = asyncHandler(async (req, res) => {
 
 exports.createFieldOfficer = asyncHandler(async (req, res) => {
   const irmId = req.user.id;
-  const officerData = req.body;
+  const officerData = { ...req.body };
+  delete officerData.profile;
+  delete officerData.profileImage;
   const files = req.files || {};
 
   try {
