@@ -132,9 +132,9 @@ exports.getOfficerVisitsCombined = async (officerId) => {
                 AND (slqi.officerTickResult = 1 OR (slqi.officerUploadImage IS NOT NULL AND slqi.officerUploadImage <> ''))
             )
           )
-
+ 
         UNION ALL
-
+ 
         SELECT 
           glj.jobId AS jobId,
           glj.id AS id,
@@ -169,7 +169,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
         WHERE jao.officerId = ?
           AND (DATE(glj.startDate) = CURDATE() OR DATE(glj.sheduleDate) = CURDATE())
           AND jao.isActive = 1
-          AND (glj.status = 'Pending' OR glj.status = 'Ongoing')
+          AND (glj.status = 'Pending' OR glj.status = 'Assigned' OR glj.status = 'Ongoing')
           AND NOT EXISTS (
               SELECT 1
               FROM govijoblinksuggestions AS gjs
@@ -301,7 +301,7 @@ exports.getOfficerVisitsCombined = async (officerId) => {
       WHERE jao.officerId = ?
         AND (DATE(glj.startDate) = CURDATE() OR DATE(glj.sheduleDate) = CURDATE())
         AND jao.isActive = 1
-        AND (glj.status = 'Pending' OR glj.status = 'Ongoing')
+        AND (glj.status = 'Pending' OR glj.status = 'Assigned' OR glj.status = 'Ongoing')
       HAVING completionPercentage > 0 AND completionPercentage <= 60
     `;
 
@@ -1011,7 +1011,6 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
       `
       : "DATE(fau.sheduleDate) = ? AND (fau.status = 'Pending' OR fau.status = 'Ongoing' OR fau.status = 'Completed')";
 
-    // Updated specifically for govilinkjobs
     const gljDateCondition = isOverdue
       ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND (glj.status = 'Assigned' OR glj.status = 'Ongoing')"
       : "DATE(glj.sheduleDate) = ? AND jao.isActive = 1 AND (glj.status = 'Assigned' OR glj.status = 'Ongoing' OR glj.status = 'Completed')";
@@ -1047,7 +1046,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
                WHEN cp.clusterId IS NOT NULL THEN fc.clsName END AS farmerName,
           CASE WHEN cp.userId IS NOT NULL THEN ps.phoneNumber END AS farmerMobile,
           CASE WHEN cp.userId IS NOT NULL THEN cp.userId END AS farmerId,
-
+ 
           CASE 
             WHEN cp.payType = 'Crop' THEN (
               SELECT ocsC.longitude
@@ -1067,7 +1066,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
               LIMIT 1
             )
           END AS longitude,
-
+ 
           CASE 
             WHEN cp.payType = 'Crop' THEN (
               SELECT ocsC.latitude
@@ -1087,7 +1086,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
               LIMIT 1
             )
           END AS latitude,
-
+ 
           CASE 
             WHEN cp.clusterId IS NOT NULL THEN fc.district
             WHEN cp.payType = 'Crop' THEN fcrop.district
@@ -1139,22 +1138,23 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
         LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
         LEFT JOIN certificationpaymentcrop AS cpc ON cp.id = cpc.paymentId
         LEFT JOIN certificationpaymentfarm AS cpf ON cp.id = cpf.paymentId
-        LEFT JOIN farms AS fcrop ON cpc.cropId = fcrop.id
+        LEFT JOIN ongoingcultivationscrops AS ocsc ON cpc.cropId = ocsc.id
+        LEFT JOIN farms AS fcrop ON ocsc.farmId = fcrop.id
         LEFT JOIN farms AS ffarm ON cpf.farmId = ffarm.id
         WHERE fau.assignOfficerId = ?
           AND ${dateCondition}
           AND fau.sheduleDate IS NOT NULL
       ) AS fa
-
+ 
       UNION ALL
-
+ 
       SELECT * FROM (
         SELECT 
           glj.jobId, glj.id, "Requested" AS propose, os.englishName, os.sinhalaName, os.tamilName,
           glj.status,
           "govilinkjobs" AS auditType,
           CONCAT(ps2.firstName,' ',ps2.lastName) AS farmerName, ps2.phoneNumber AS farmerMobile, ps2.id AS farmerId,
-
+ 
           (
             SELECT ocsR.longitude
             FROM ongoingcultivationscrops AS ocsR
@@ -1171,7 +1171,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
             ORDER BY ocsR.startedAt DESC
             LIMIT 1
           ) AS latitude,
-
+ 
           f.district, f.plotNo, f.street, f.city, f.id AS farmId,
           NULL AS certificateId, NULL AS clusterId, NULL AS certificationpaymentId,
           glj.sheduleDate,

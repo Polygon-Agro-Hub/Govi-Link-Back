@@ -14,6 +14,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     const isOverdue =
       isOverdueSelected === true || isOverdueSelected === "true";
 
+
     const dateCondition = isOverdue
       ? `
           DATE(fau.sheduleDate) < DATE(CURDATE()) AND fau.status = 'Pending'
@@ -35,9 +36,10 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
           )
         `;
 
+
     const gljDateCondition = isOverdue
-      ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND glj.status = 'Pending'"
-      : "DATE(glj.sheduleDate) = ? AND glj.status = 'Pending' AND jao.isActive = 1";
+      ? "DATE(glj.sheduleDate) < DATE(CURDATE()) AND jao.isActive = 1 AND glj.status IN ('Pending','Assigned')"
+      : "DATE(glj.sheduleDate) = ? AND glj.status IN ('Pending','Assigned') AND jao.isActive = 1";
 
     const sql = `
       SELECT * FROM (
@@ -132,7 +134,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
     )
     ELSE NULL
   END AS completionPercentage
-
+ 
         FROM feildaudits AS fau
         LEFT JOIN certificationpayment AS cp ON fau.paymentId = cp.id
         LEFT JOIN users AS ps ON cp.userId = ps.id
@@ -146,7 +148,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
           AND ${dateCondition}
           AND fau.sheduleDate IS NOT NULL
       ) AS fa
-
+ 
       UNION ALL
  
       SELECT * FROM (
@@ -186,7 +188,7 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
           AND ${gljDateCondition} 
           AND glj.sheduleDate IS NOT NULL
       ) AS glj_combined
-
+ 
       ORDER BY sheduleDate DESC
     `;
 
@@ -458,7 +460,7 @@ exports.assignOfficerToFieldAuditsDAO = async (
           return rollback(conn, "No field audits found with the given IDs");
         }
 
-        // Check if any audits are already assigned to other officers
+
         const alreadyAssignedToOthers = auditResults.filter(
           (audit) =>
             audit.assignOfficerId && audit.assignOfficerId !== assignOfficerId,

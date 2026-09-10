@@ -5,9 +5,7 @@ const router = express.Router();
 const {
   plantcare,
   collectionofficer,
-  marketPlace,
   admin,
-  investments,
 } = require("../startup/database");
 
 const BASE_PATH = "/govilink";
@@ -53,17 +51,13 @@ router.get("/health/details", async (req, res) => {
     const dbChecks = await Promise.allSettled([
       testConnection(plantcare, "PlantCare"),
       testConnection(collectionofficer, "CollectionOfficer"),
-      testConnection(marketPlace, "MarketPlace"),
-      testConnection(admin, "Admin"),
-      testConnection(investments, "Investments")
+      testConnection(admin, "Admin")
     ]);
 
     const databases = {
       plantcare: dbChecks[0].status === 'fulfilled' ? 'connected' : 'disconnected',
       collectionofficer: dbChecks[1].status === 'fulfilled' ? 'connected' : 'disconnected',
-      marketplace: dbChecks[2].status === 'fulfilled' ? 'connected' : 'disconnected',
-      admin: dbChecks[3].status === 'fulfilled' ? 'connected' : 'disconnected',
-      investments: dbChecks[4].status === 'fulfilled' ? 'connected' : 'disconnected'
+      admin: dbChecks[2].status === 'fulfilled' ? 'connected' : 'disconnected'
     };
 
     const allConnected = Object.values(databases).every(status => status === 'connected');
@@ -174,17 +168,13 @@ router.get("/health/db/:database", async (req, res) => {
   const dbMap = {
     plantcare: plantcare,
     collectionofficer: collectionofficer,
-    marketplace: marketPlace,
-    admin: admin,
-    investments: investments
+    admin: admin
   };
 
   const dbNameMap = {
     plantcare: "PlantCare",
     collectionofficer: "CollectionOfficer",
-    marketplace: "MarketPlace",
-    admin: "Admin",
-    investments: "Investments"
+    admin: "Admin"
   };
 
   if (!dbMap[database]) {
