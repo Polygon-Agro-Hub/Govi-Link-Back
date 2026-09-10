@@ -31,7 +31,7 @@ exports.createSupplier = (supplierName, contact, email, nic, officerId) => {
                     (?, ?, ?, ?, ?, 0, 1, 'active', 'Standard', 'Free Access', 'GoviLink',?, NOW(), NOW())
             `;
 
-            db.govishop.query(
+            db.plantcare.query(
                 insertSql,
                 [supplierName, contact, email, nic, hashedPassword, officerId],
                 (insertErr, insertResult) => {
@@ -50,7 +50,7 @@ exports.createSupplier = (supplierName, contact, email, nic, officerId) => {
                         LIMIT 1
                     `;
 
-                    db.govishop.query(seqSql, [`${datePrefix}%`], (seqErr, seqResult) => {
+                    db.plantcare.query(seqSql, [`${datePrefix}%`], (seqErr, seqResult) => {
                         if (seqErr) {
                             console.error("DB Sequence Error:", seqErr);
                             return reject(seqErr);
@@ -73,7 +73,7 @@ exports.createSupplier = (supplierName, contact, email, nic, officerId) => {
                                 WHERE id = ?
                             `;
 
-                        db.govishop.query(updateSql, [regCode, newId], (updateErr) => {
+                        db.plantcare.query(updateSql, [regCode, newId], (updateErr) => {
                             if (updateErr) {
                                 console.error("DB Update regCode Error:", updateErr);
                                 return reject(updateErr);
@@ -93,7 +93,7 @@ exports.createSupplier = (supplierName, contact, email, nic, officerId) => {
 exports.checkAlreadyExist = async (contact, email, nic) => {
     const query = (sql, params) =>
         new Promise((resolve, reject) => {
-            db.govishop.query(sql, params, (err, results) => {
+            db.plantcare.query(sql, params, (err, results) => {
                 if (err) return reject(new Error("Database error: " + err.message));
                 resolve(results.length > 0);
             });
