@@ -10,12 +10,12 @@ exports.getCapitalRequest = async (officerId) => {
           ir.auditedDate,
           CONCAT(u.firstname, ' ', u.lastname) AS farmerName
         FROM investmentrequest ir
-        LEFT JOIN plant_care.users u
+        LEFT JOIN users u
           ON u.id = ir.farmerId
         WHERE ir.officerId = ?
           AND ir.auditedDate IS NULL
     `;
-    db.investments.query(sql, [officerId], (err, results) => {
+    db.plantcare.query(sql, [officerId], (err, results) => {
       if (err) return reject(err);
       resolve(results);
     });
@@ -47,11 +47,11 @@ exports.getCapitalRequestById = async (id) => {
         cg.cropNameSinhala,
         cg.cropNameTamil
       FROM investmentrequest ir
-      LEFT JOIN plant_care.users u ON u.id = ir.farmerId
-      LEFT JOIN plant_care.cropgroup cg ON cg.id = ir.cropId
+      LEFT JOIN users u ON u.id = ir.farmerId
+      LEFT JOIN cropgroup cg ON cg.id = ir.cropId
       WHERE ir.id = ?
     `;
-    db.investments.query(sql, [id], (err, results) => {
+    db.plantcare.query(sql, [id], (err, results) => {
       if (err) return reject(err);
       resolve(results);
     });
@@ -132,7 +132,7 @@ exports.insertInspectionData = async (tableName, data) => {
 
     const query = `INSERT INTO \`${tableName}\` (${columnNames}) VALUES (${placeholders})`;
 
-    db.investments.query(query, values, (error, results) => {
+    db.plantcare.query(query, values, (error, results) => {
       if (error) {
         console.error(`Error inserting into ${tableName}:`, error);
         reject(error);
@@ -195,7 +195,7 @@ exports.updateInspectionData = async (tableName, reqId, data) => {
 
     const query = `UPDATE \`${tableName}\` SET ${setClause} WHERE ${TABLE_FOREIGN_KEY} = ?`;
 
-    db.investments.query(query, values, (error, results) => {
+    db.plantcare.query(query, values, (error, results) => {
       if (error) {
         console.error(`Error updating ${tableName}:`, error);
         reject(error);
@@ -219,7 +219,7 @@ exports.checkRecordExists = async (tableName, reqId) => {
   return new Promise((resolve, reject) => {
     const query = `SELECT COUNT(*) AS count FROM \`${tableName}\` WHERE ${TABLE_FOREIGN_KEY} = ?`;
 
-    db.investments.query(query, [reqId], (error, results) => {
+    db.plantcare.query(query, [reqId], (error, results) => {
       if (error) {
         console.error(`Error checking record in ${tableName}:`, error);
         reject(error);
@@ -238,7 +238,7 @@ exports.getInspectionData = async (tableName, reqId) => {
   return new Promise((resolve, reject) => {
     const query = `SELECT * FROM \`${tableName}\` WHERE ${TABLE_FOREIGN_KEY} = ?`;
 
-    db.investments.query(query, [reqId], (error, results) => {
+    db.plantcare.query(query, [reqId], (error, results) => {
       if (error) {
         console.error(`Error fetching from ${tableName}:`, error);
         reject(error);
@@ -252,7 +252,7 @@ exports.getInspectionData = async (tableName, reqId) => {
 
 exports.deleteAllInspectionData = async (reqId) => {
   return new Promise((resolve, reject) => {
-    db.investments.getConnection((err, connection) => {
+    db.plantcare.getConnection((err, connection) => {
       if (err) {
         console.error("❌ Error getting connection:", err);
         return reject(err);
@@ -338,7 +338,7 @@ exports.checkAllTablesHaveData = async (reqId) => {
       return new Promise((resolveCheck, rejectCheck) => {
         const query = `SELECT COUNT(*) AS count FROM \`${tableName}\` WHERE ${TABLE_FOREIGN_KEY} = ?`;
 
-        db.investments.query(query, [reqId], (error, results) => {
+        db.plantcare.query(query, [reqId], (error, results) => {
           if (error) {
             console.error(`❌ Error checking ${tableName}:`, error);
             rejectCheck(error);
@@ -411,7 +411,7 @@ exports.updateAuditedDate = async (reqId) => {
         WHERE id = ?
       `;
 
-      db.investments.query(query, [reqId], (error, results) => {
+      db.plantcare.query(query, [reqId], (error, results) => {
         if (error) {
           console.error("❌ Error updating auditedDate:", error);
           return reject(error);
@@ -442,7 +442,7 @@ exports.updateOfficerStatus = async (requestId) => {
   return new Promise((resolve, reject) => {
     const sql = `UPDATE investmentrequest SET officerStatus = 'Ongoing' WHERE id = ?`;
 
-    db.investments.query(sql, [requestId], (err, results) => {
+    db.plantcare.query(sql, [requestId], (err, results) => {
       if (err) {
         return reject(err);
       }

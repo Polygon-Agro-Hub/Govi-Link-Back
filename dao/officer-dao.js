@@ -1138,7 +1138,8 @@ exports.getVisitsbydate = async (officerId, date, isOverdueSelected) => {
         LEFT JOIN farmcluster AS fc ON cp.clusterId = fc.id
         LEFT JOIN certificationpaymentcrop AS cpc ON cp.id = cpc.paymentId
         LEFT JOIN certificationpaymentfarm AS cpf ON cp.id = cpf.paymentId
-        LEFT JOIN farms AS fcrop ON cpc.cropId = fcrop.id
+        LEFT JOIN ongoingcultivationscrops AS ocsc ON cpc.cropId = ocsc.id
+        LEFT JOIN farms AS fcrop ON ocsc.farmId = fcrop.id
         LEFT JOIN farms AS ffarm ON cpf.farmId = ffarm.id
         WHERE fau.assignOfficerId = ?
           AND ${dateCondition}

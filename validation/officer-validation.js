@@ -159,7 +159,7 @@ const createFieldOfficerSchema = Joi.object({
     "string.min": "Branch must be at least 1 character long",
     "string.max": "Branch must be at most 225 characters long",
   }),
-});
+}).unknown(true);
 
 module.exports = {
   createFieldOfficerSchema,
