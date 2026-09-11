@@ -1,5 +1,5 @@
 const { S3Client, PutObjectCommand } = require("@aws-sdk/client-s3");
-const { v4: uuidv4 } = require("uuid");
+const crypto = require("crypto");
 
 const r2Client = new S3Client({
   region: "auto",
@@ -14,7 +14,7 @@ const r2Client = new S3Client({
 const uploadFileToS3 = async (fileBuffer, fileName, keyPrefix) => {
   try {
     const fileExtension = fileName.split(".").pop();
-    const uniqueFileName = `${uuidv4()}.${fileExtension}`;
+    const uniqueFileName = `${crypto.randomUUID()}.${fileExtension}`;
     const key = `${keyPrefix}/${uniqueFileName}`;
 
     const getContentType = (ext) => {
