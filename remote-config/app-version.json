@@ -1,0 +1,19 @@
+{
+  "android": {
+    "latestVersion": "1.0.0",
+    "minimumVersion": "1.0.0",
+    "minOsVersion": "24"
+  },
+  "ios": {
+    "latestVersion": "1.0.0",
+    "minimumVersion": "1.0.0"
+  },
+  "messages": {
+    "softTitle": "New Version Available!",
+    "softMessage": "A new version of GoViLink is ready. Update now for the latest improvements and bug fixes.",
+    "forceTitle": "Update Required",
+    "forceMessage": "Your current app version is out of date. Please update to continue using GoViLink.",
+    "updateButton": "Update Now",
+    "laterButton": "Update Later"
+  }
+}
