@@ -1,232 +1,393 @@
 const express = require("express");
 const router = express.Router();
+const os = require("os");
+const path = require("path");
 
-// Database connections
-const {
+// ============================================================================
+// 1. SERVICE METADATA & CONFIGURATION
+// ============================================================================
+let pkg = {};
+try {
+  pkg = require(path.join(__dirname, "../package.json"));
+} catch (_) {
+  pkg = {};
+}
+
+const SERVICE_NAME = "GoviLink API";
+const SERVICE_VERSION = pkg.version || "1.0.0";
+
+// ============================================================================
+// 2. DATABASE POOLS
+// ============================================================================
+const { plantcare, collectionofficer, admin } = require("../startup/database");
+
+const databasePools = {
   plantcare,
   collectionofficer,
   admin,
-} = require("../startup/database");
+};
 
-const BASE_PATH = "/govilink";
+// ============================================================================
+// 3. CORS & ROUTE MIDDLEWARE
+// ============================================================================
+router.use((req, res, next) => {
+  res.header("Access-Control-Allow-Origin", "*");
+  res.header("Access-Control-Allow-Methods", "GET, HEAD, OPTIONS");
+  res.header("Access-Control-Allow-Headers", "Content-Type, Authorization, X-Requested-With");
+  if (req.method === "OPTIONS") {
+    return res.sendStatus(204);
+  }
+  next();
+});
 
-// Database connection test helper
+// ============================================================================
+// 4. DATABASE CONNECTIVITY TEST HELPER
+// ============================================================================
 const testConnection = (pool, name) => {
-  return new Promise((resolve, reject) => {
-    pool.getConnection((err, connection) => {
-      if (err) {
-        reject(err);
-      } else {
-        connection.ping((pingErr) => {
-          if (pingErr) {
-            connection.release();
-            reject(pingErr);
-          } else {
-            connection.release();
-            resolve();
-          }
+  return new Promise((resolve) => {
+    if (!pool) {
+      return resolve({
+        name,
+        status: "disconnected",
+        latencyMs: 0,
+        error: "Database pool not found",
+      });
+    }
+
+    const startTime = Date.now();
+    let hasResolved = false;
+
+    // 3-second safeguard timeout
+    const timeout = setTimeout(() => {
+      if (!hasResolved) {
+        hasResolved = true;
+        resolve({
+          name,
+          status: "timeout",
+          latencyMs: Date.now() - startTime,
+          error: "Connection check timed out after 3000ms",
         });
       }
+    }, 3000);
+
+    pool.getConnection((err, connection) => {
+      if (hasResolved) {
+        if (connection) connection.release();
+        return;
+      }
+
+      if (err) {
+        clearTimeout(timeout);
+        hasResolved = true;
+        return resolve({
+          name,
+          status: "disconnected",
+          latencyMs: Date.now() - startTime,
+          error: err.message,
+        });
+      }
+
+      connection.ping((pingErr) => {
+        clearTimeout(timeout);
+        connection.release();
+        if (hasResolved) return;
+        hasResolved = true;
+
+        if (pingErr) {
+          resolve({
+            name,
+            status: "disconnected",
+            latencyMs: Date.now() - startTime,
+            error: pingErr.message,
+          });
+        } else {
+          resolve({
+            name,
+            status: "connected",
+            latencyMs: Date.now() - startTime,
+          });
+        }
+      });
     });
   });
 };
 
-// Basic health check endpoint
-router.get(["/health", "/healthz"], (req, res) => {
-  const data = {
-    uptime: process.uptime(),
-    message: "OK",
-    timestamp: new Date(),
-    environment: process.env.NODE_ENV || "development",
-    service: "GoLink API",
-    status: "healthy"
+const checkAllDatabases = async () => {
+  const dbEntries = Object.entries(databasePools);
+  const results = await Promise.allSettled(
+    dbEntries.map(([key, pool]) => testConnection(pool, key))
+  );
+
+  const connections = {};
+  let connectedCount = 0;
+  const totalCount = dbEntries.length;
+
+  results.forEach((res, index) => {
+    const key = dbEntries[index][0];
+    if (res.status === "fulfilled") {
+      connections[key] = res.value.status;
+      if (res.value.status === "connected") {
+        connectedCount++;
+      }
+    } else {
+      connections[key] = "disconnected";
+    }
+  });
+
+  const allConnected = connectedCount === totalCount;
+  const anyConnected = connectedCount > 0;
+
+  return {
+    status: allConnected ? "connected" : anyConnected ? "degraded" : "disconnected",
+    allConnected,
+    anyConnected,
+    connections,
+    connectedCount,
+    totalCount,
   };
-  res.status(200).json(data);
-});
+};
 
-// Detailed health check with database connections
-router.get("/health/details", async (req, res) => {
-  try {
-    // Check all database connections
-    const dbChecks = await Promise.allSettled([
-      testConnection(plantcare, "PlantCare"),
-      testConnection(collectionofficer, "CollectionOfficer"),
-      testConnection(admin, "Admin")
-    ]);
+// ============================================================================
+// 5. DIAGNOSTIC FORMATTERS & HELPERS
+// ============================================================================
+function formatUptime(seconds) {
+  const s = Math.floor(seconds);
+  const days = Math.floor(s / (3600 * 24));
+  const hours = Math.floor((s % (3600 * 24)) / 3600);
+  const minutes = Math.floor((s % 3600) / 60);
+  const secs = s % 60;
 
-    const databases = {
-      plantcare: dbChecks[0].status === 'fulfilled' ? 'connected' : 'disconnected',
-      collectionofficer: dbChecks[1].status === 'fulfilled' ? 'connected' : 'disconnected',
-      admin: dbChecks[2].status === 'fulfilled' ? 'connected' : 'disconnected'
-    };
+  const parts = [];
+  if (days > 0) parts.push(`${days}d`);
+  if (hours > 0 || days > 0) parts.push(`${hours}h`);
+  if (minutes > 0 || hours > 0 || days > 0) parts.push(`${minutes}m`);
+  parts.push(`${secs}s`);
 
-    const allConnected = Object.values(databases).every(status => status === 'connected');
+  return parts.join(" ");
+}
 
-    const data = {
-      uptime: process.uptime(),
-      message: allConnected ? "OK" : "Degraded",
-      timestamp: new Date(),
-      environment: process.env.NODE_ENV || "development",
-      service: "GoLink API",
-      status: allConnected ? "healthy" : "degraded",
-      databases: databases,
-      memory: process.memoryUsage(),
-      cpu: process.cpuUsage()
-    };
+function formatBytes(bytes) {
+  if (!bytes || bytes === 0) return "0 Bytes";
+  const k = 1024;
+  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
+  const i = Math.floor(Math.log(bytes) / Math.log(k));
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
+}
 
-    const statusCode = allConnected ? 200 : 207;
-    res.status(statusCode).json(data);
-  } catch (error) {
-    res.status(500).json({
-      uptime: process.uptime(),
-      message: "Error checking health",
-      timestamp: new Date(),
-      environment: process.env.NODE_ENV || "development",
-      service: "GoLink API",
-      status: "unhealthy",
-      error: error.message
-    });
-  }
-});
+function formatMemoryUsage(memoryUsage) {
+  const heapUsedMB = memoryUsage.heapUsed / 1024 / 1024;
+  const heapTotalMB = memoryUsage.heapTotal / 1024 / 1024;
+  const heapPercentage = ((heapUsedMB / heapTotalMB) * 100).toFixed(1) + "%";
 
-// Readiness probe endpoint (for Kubernetes)
-router.get("/health/ready", (req, res) => {
+  return {
+    rss: `${(memoryUsage.rss / 1024 / 1024).toFixed(2)} MB`,
+    heapTotal: `${heapTotalMB.toFixed(2)} MB`,
+    heapUsed: `${heapUsedMB.toFixed(2)} MB`,
+    external: `${(memoryUsage.external / 1024 / 1024).toFixed(2)} MB`,
+    heapUsedPercent: heapPercentage,
+  };
+}
+
+// ============================================================================
+// 6. HEALTH ROUTES & ENDPOINTS
+// ============================================================================
+
+router.get(["/health", "/healthz"], (req, res) => {
   res.status(200).json({
-    status: "ready",
-    timestamp: new Date()
+    status: "OK",
+    healthy: true,
+    message: "Service is running smoothly",
+    timestamp: new Date().toISOString(),
+    uptime: formatUptime(process.uptime()),
+    uptimeSeconds: Math.floor(process.uptime()),
+    environment: process.env.NODE_ENV || "development",
+    version: SERVICE_VERSION,
+    service: SERVICE_NAME,
   });
 });
 
-// Liveness probe endpoint (for Kubernetes)
+router.get(["/health/detailed", "/health/details"], async (req, res) => {
+  const dbHealth = await checkAllDatabases();
+
+  const totalMem = os.totalmem();
+  const freeMem = os.freemem();
+  const usedMem = totalMem - freeMem;
+  const memUsagePercent = ((usedMem / totalMem) * 100).toFixed(1) + "%";
+
+  const isHealthy = dbHealth.allConnected;
+  const statusCode = isHealthy ? 200 : dbHealth.anyConnected ? 207 : 503;
+
+  res.status(statusCode).json({
+    status: isHealthy ? "OK" : dbHealth.anyConnected ? "Degraded" : "Unhealthy",
+    healthy: isHealthy,
+    statusCode,
+    message: isHealthy
+      ? "All systems and database connections are operating normally"
+      : "One or more database connections are degraded or unavailable",
+    timestamp: new Date().toISOString(),
+    uptime: formatUptime(process.uptime()),
+    uptimeSeconds: Math.floor(process.uptime()),
+    environment: process.env.NODE_ENV || "development",
+
+    application: {
+      name: SERVICE_NAME,
+      version: SERVICE_VERSION,
+      nodeVersion: process.version,
+      pid: process.pid,
+      memoryUsage: formatMemoryUsage(process.memoryUsage()),
+      cpuUsage: process.cpuUsage(),
+    },
+
+    system: {
+      platform: process.platform,
+      architecture: process.arch,
+      hostname: os.hostname(),
+      cpus: os.cpus().length,
+      loadAverage: os.loadavg(),
+      freeMemory: formatBytes(freeMem),
+      totalMemory: formatBytes(totalMem),
+      memoryUsagePercent: memUsagePercent,
+      systemUptime: formatUptime(os.uptime()),
+      networkInterfaces: Object.keys(os.networkInterfaces()),
+    },
+
+    database: dbHealth.connections,
+    databaseSummary: {
+      status: dbHealth.status,
+      connected: dbHealth.connectedCount,
+      total: dbHealth.totalCount,
+    },
+  });
+});
+
 router.get("/health/live", (req, res) => {
   res.status(200).json({
     status: "alive",
-    timestamp: new Date()
+    healthy: true,
+    timestamp: new Date().toISOString(),
+    uptime: Math.floor(process.uptime()),
   });
 });
 
-// Home page endpoint
-router.get("/home", (req, res) => {
-  res.send(`
-    <html>
-      <head>
-        <title>GoLink API</title>
-        <style>
-          body { font-family: Arial, sans-serif; margin: 40px; line-height: 1.6; }
-          h1 { color: #333; }
-          .endpoints { background: #f4f4f4; padding: 20px; border-radius: 5px; }
-          code { background: #e0e0e0; padding: 2px 5px; border-radius: 3px; }
-          .status { margin-top: 20px; }
-          .healthy { color: green; }
-          .degraded { color: orange; }
-          .unhealthy { color: red; }
-        </style>
-      </head>
-      <body>
-        <h1>Welcome to GoLink API</h1>
-        <div class="endpoints">
-          <h3>Available Health Endpoints:</h3>
-          <ul>
-            <li><code>${BASE_PATH}/health</code> - Basic health check</li>
-            <li><code>${BASE_PATH}/healthz</code> - Alias for basic health check</li>
-            <li><code>${BASE_PATH}/health/details</code> - Detailed health check with database status</li>
-            <li><code>${BASE_PATH}/health/ready</code> - Readiness probe (Kubernetes)</li>
-            <li><code>${BASE_PATH}/health/live</code> - Liveness probe (Kubernetes)</li>
-            <li><code>${BASE_PATH}/version</code> - API version information</li>
-            <li><code>${BASE_PATH}/home</code> - This page</li>
-          </ul>
-        </div>
-        <div class="status">
-          <h3>Current Status:</h3>
-          <p>Server uptime: ${Math.floor(process.uptime() / 60)} minutes ${Math.floor(process.uptime() % 60)} seconds</p>
-          <p>Current time: ${new Date().toLocaleString()}</p>
-          <p>Environment: ${process.env.NODE_ENV || "development"}</p>
-          <p>Node version: ${process.version}</p>
-          <p>Platform: ${process.platform}</p>
-        </div>
-      </body>
-    </html>
-  `);
-});
-
-// Version endpoint
-router.get("/version", (req, res) => {
-  res.status(200).json({
-    version: "1.0.0",
-    name: "GoLink API",
-    description: "API for GoLink collection management system",
-    nodeVersion: process.version,
-    platform: process.platform,
-    environment: process.env.NODE_ENV || "development"
-  });
-});
-
-// Manual database connection check endpoint
-router.get("/health/db/:database", async (req, res) => {
-  const { database } = req.params;
-  
-  const dbMap = {
-    plantcare: plantcare,
-    collectionofficer: collectionofficer,
-    admin: admin
-  };
-
-  const dbNameMap = {
-    plantcare: "PlantCare",
-    collectionofficer: "CollectionOfficer",
-    admin: "Admin"
-  };
-
-  if (!dbMap[database]) {
-    return res.status(404).json({
-      error: "Database not found",
-      message: `Database '${database}' is not recognized`
-    });
-  }
-
+router.get("/health/ready", async (req, res) => {
   try {
-    await testConnection(dbMap[database], dbNameMap[database]);
-    res.status(200).json({
-      database: database,
-      name: dbNameMap[database],
-      status: "connected",
-      timestamp: new Date()
-    });
+    const dbHealth = await checkAllDatabases();
+
+    if (dbHealth.allConnected) {
+      res.status(200).json({
+        status: "ready",
+        healthy: true,
+        timestamp: new Date().toISOString(),
+        databases: dbHealth.connections,
+      });
+    } else {
+      res.status(503).json({
+        status: "not ready",
+        healthy: false,
+        timestamp: new Date().toISOString(),
+        message: "Database connection checks failed",
+        databases: dbHealth.connections,
+      });
+    }
   } catch (error) {
     res.status(503).json({
-      database: database,
-      name: dbNameMap[database],
-      status: "disconnected",
+      status: "not ready",
+      healthy: false,
+      timestamp: new Date().toISOString(),
       error: error.message,
-      timestamp: new Date()
     });
   }
 });
 
-// Metrics endpoint (for monitoring systems like Prometheus)
+router.get("/version", (req, res) => {
+  res.status(200).json({
+    name: SERVICE_NAME,
+    version: SERVICE_VERSION,
+    environment: process.env.NODE_ENV || "development",
+    nodeVersion: process.version,
+    platform: process.platform,
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get("/health/db/:database", async (req, res) => {
+  const { database } = req.params;
+  const pool = databasePools[database];
+
+  if (!pool) {
+    return res.status(404).json({
+      error: "Database not found",
+      message: `Database '${database}' is not recognized`,
+      configuredDatabases: Object.keys(databasePools),
+    });
+  }
+
+  const result = await testConnection(pool, database);
+  const isConnected = result.status === "connected";
+
+  res.status(isConnected ? 200 : 503).json({
+    database,
+    status: result.status,
+    latencyMs: result.latencyMs,
+    error: result.error,
+    timestamp: new Date().toISOString(),
+  });
+});
+
 router.get("/metrics", (req, res) => {
   const memoryUsage = process.memoryUsage();
   const cpuUsage = process.cpuUsage();
-  
+
   res.status(200).json({
     metrics: {
       memory: {
-        rss: Math.round(memoryUsage.rss / 1024 / 1024) + 'MB',
-        heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024) + 'MB',
-        heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024) + 'MB',
-        external: Math.round(memoryUsage.external / 1024 / 1024) + 'MB'
+        rss: `${Math.round(memoryUsage.rss / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(memoryUsage.heapTotal / 1024 / 1024)} MB`,
+        heapUsed: `${Math.round(memoryUsage.heapUsed / 1024 / 1024)} MB`,
+        external: `${Math.round(memoryUsage.external / 1024 / 1024)} MB`,
       },
       cpu: {
-        user: cpuUsage.user + 'μs',
-        system: cpuUsage.system + 'μs'
+        user: `${cpuUsage.user} μs`,
+        system: `${cpuUsage.system} μs`,
       },
-      uptime: process.uptime() + 's',
-      uptimeFormatted: Math.floor(process.uptime() / 60) + 'm ' + Math.floor(process.uptime() % 60) + 's',
+      uptime: `${process.uptime().toFixed(1)}s`,
+      uptimeFormatted: formatUptime(process.uptime()),
       pid: process.pid,
-      title: process.title,
-      versions: process.versions
+      nodeVersion: process.version,
     },
-    timestamp: new Date()
+    timestamp: new Date().toISOString(),
+  });
+});
+
+router.get("/home", (req, res) => {
+  res.status(200).json({
+    message: `Welcome to ${SERVICE_NAME}`,
+    description: "Farmer & Marketplace Networking API",
+    version: SERVICE_VERSION,
+    environment: process.env.NODE_ENV || "development",
+    timestamp: new Date().toISOString(),
+    endpoints: {
+      health: {
+        basic: "GET /health (or /healthz) - Lightweight service status & uptime",
+        detailed: "GET /health/detailed (or /health/details) - System metrics & live database ping",
+        liveness: "GET /health/live - Container liveness probe",
+        readiness: "GET /health/ready - Container readiness probe",
+        databaseTest: "GET /health/db/:database - Diagnostic check for single database pool",
+        metrics: "GET /metrics - CPU, RAM and process metrics",
+        version: "GET /version - Service release version",
+      },
+      api: {
+        auth: "GET/POST /api/auth - Officer & user authentication",
+        officer: "GET/POST /api/officer - Field officer management",
+        clusterAudit: "GET/POST /api/cluster-audit - Cluster auditing operations",
+        requestAudit: "GET/POST /api/request-audit - Audit request tracking",
+        complaint: "GET/POST /api/complaint - Complaints handling",
+        assignJobs: "GET/POST /api/assign-jobs - Job assignment workflows",
+        capitalRequest: "GET/POST /api/capital-request - Farmer capital requests",
+        onboardSupplier: "GET/POST /api/onboard-supplier - Supplier onboarding",
+        appVersion: "GET /api/app-version - App version policy for update prompts",
+      },
+    },
   });
 });
 
