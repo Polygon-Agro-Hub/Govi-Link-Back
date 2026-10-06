@@ -30,6 +30,7 @@ const capitalRequest = require("./routes/capital-request-routes.js");
 const healthRoutes = require("./routes/health-routes.js");
 const onboardsupplierRoutes = require("./routes/onboard-supplier-routes.js");
 const appVersionRoutes = require("./routes/app-version.routes.js");
+const otpRoutes = require("./routes/otp-routes.js");
 
 app.use(BASE_PATH, healthRoutes);
 app.use(`${BASE_PATH}/api/auth`, userroute);
@@ -41,6 +42,7 @@ app.use(`${BASE_PATH}/api/assign-jobs`, assignjobsroutes);
 app.use(`${BASE_PATH}/api/capital-request`, capitalRequest);
 app.use(`${BASE_PATH}/api/onboard-supplier`, onboardsupplierRoutes);
 app.use(`${BASE_PATH}/api/app-version`, appVersionRoutes);
+app.use(`${BASE_PATH}/api/otp`, otpRoutes);
 
 // Error handling middleware
 app.use((err, req, res, next) => {
